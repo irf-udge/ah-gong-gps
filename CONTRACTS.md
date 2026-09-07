@@ -136,6 +136,49 @@ single in-flight promise.
 > Singapore's accessibility data but exposes no accessibility routing API — we
 > built the routing layer that doesn't exist.* Don't hunt for the flag.
 
+#### Verified response shapes
+
+**Token.** Ours expires **2026-09-10 23:27 SGT** (72 h lifetime, `exp` in the JWT).
+Send it as `Authorization: <token>` — no `Bearer` prefix.
+
+**`/routingsvc/route?routeType=walk`** returns:
+
+```jsonc
+{
+  "route_geometry": "<encoded polyline>",        // decode: core/geo.decodePolyline
+  "route_summary": { "total_time": 537, "total_distance": 745 },
+  "route_instructions": [ /* array of ARRAYS, 10 fields each */ ]
+}
+```
+
+`route_instructions[i]` is a positional array, **not an object**:
+
+| # | Meaning | Example |
+|---|---|---|
+| 0 | direction | `"Head"`, `"Right"`, `"Left"`, `"Slight Right"` |
+| 1 | **road name — often `""`** | `""` |
+| 2 | distance (m, int) | `39` |
+| 3 | `"lat,lng"` | `"1.366506,103.845505"` |
+| 4 | time (s) | `28` |
+| 5 | distance string | `"39m"` |
+| 6 / 7 | heading / previous heading | `"North West"` |
+| 8 | mode | `"walking"` |
+| 9 | human instruction | `"Head Northwest"` |
+
+> **Field 1 is empty on most walk legs — there is literally no street name to
+> give.** That is the strongest possible confirmation of the landmark approach.
+
+> ⚠️ **Collapse the manoeuvres.** A real 745 m route came back as **7**
+> instructions, including `"Slight Right"` and `"Keep Right At The Fork"`. Seven
+> spoken steps for a 12-minute walk is far too many for a 70-year-old. Merge
+> micro-turns into a handful of landmark-anchored decisions before the rewrite.
+
+**`/themesvc/retrieveTheme?queryName=&extents=lat1,lng1,lat2,lng2`** returns
+`{ SrchResults: [...] }` where **element 0 is metadata**
+(`FeatCount`, `Theme_Name`, `Owner`), and features follow from index 1. Don't
+map over it blindly. Features carry `NAME`, `ADDRESSBUILDINGNAME`,
+`ADDRESSBLOCKHOUSENUMBER`, `LatLng`.
+
 Other things that will bite you:
 
 - **Reverse geocode returns BUILDINGS, not POIs.** Max 10 within the buffer
@@ -164,9 +207,33 @@ Working metadata endpoint:
 So: download once, clip to the demo corridor, commit the slice, load into memory.
 Nothing in the request path touches data.gov.sg. See `data/etl.ts`.
 
-**Layer status:** covered linkways (LTA — find the ID) · public toilets (available) ·
-lifts/barrier-free (OneMap Themes, enumerate once the token exists) · bus stops
-(LTA DataMall) · **benches — unconfirmed, may not exist nationally**.
+**Layer status — now resolved.** I enumerated all **165** OneMap themes with the
+live token and keyword-checked every one:
+
+| Layer | In OneMap Themes? |
+|---|---|
+| barrier-free / wheelchair / accessible | ❌ absent |
+| lifts | ❌ absent (only *HDB Lift Upgrading Programme, under construction*) |
+| toilets | ❌ absent |
+| benches / seats / rest points | ❌ absent |
+| sheltered / covered / linkway / walkway | ❌ absent (`shelter` only matches **bomb** shelters) |
+| bus stops | ❌ absent |
+| eldercare | ✅ `eldercare` |
+
+> ### ⚠️ The brief is wrong here too
+> It claims Themes includes *"barrier-free facilities, lifts, eldercare services"*.
+> **Only eldercare exists.** OneMap Themes supplies **none** of the comfort layers.
+>
+> Therefore **`data/etl.ts` is on the critical path, not a nice-to-have** — every
+> shelter, bench, toilet and lift must come from data.gov.sg / LTA DataMall.
+
+What Themes *is* good for is **landmarks**, and it's good at it. The 11 usable
+layers are saved in `fixtures/onemap-themes.json`. The best for our user:
+`ssot_hawkercentres`, `communityclubs`, `eldercare`, `moh_hospitals`,
+`registered_pharmacy`, `nationalparks`, `park_connector_loop`.
+
+Verified real AMK landmarks from `ssot_hawkercentres`: *Teck Ghee Square (Blk 409)*,
+*Chong Boon Market and Food Centre (Blk 453A)*, *Cheng San Market (Blk 527)*.
 
 > **Green Man+ is deliberately excluded** — the dataset is outdated. Not in the
 > scoring, not in the pitch.

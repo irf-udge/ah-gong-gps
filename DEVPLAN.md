@@ -20,8 +20,17 @@ These are cheap to do now and expensive to discover late. Do them in parallel.
       the whole month, across all three of us.** See `CONTRACTS.md` § 2.1.
       → **Therefore: `FixtureStt` is the dev default, cache by audio hash, and
       handle 429 explicitly.** Do not point routine UI work at MERaLiON.
-- [ ] **A —** Register OneMap: <https://www.onemap.gov.sg/apidocs/register>.
-      Put email+password in `.env`.
+- [x] ~~**A —** Register OneMap.~~ **DONE — raw token in `.env`, verified live
+      against search, revgeocode, route and themes (all HTTP 200).**
+      > 🔴 **TOKEN EXPIRES 2026-09-10 23:27 SGT.** That is a hard 72-hour clock,
+      > and it lands *on* the late end of our demo window. A raw token cannot
+      > self-refresh.
+- [ ] **A — do this anyway:** get `ONEMAP_EMAIL` + `ONEMAP_PASSWORD` so the
+      server can mint its own tokens and refresh on 401. Ten minutes now removes
+      a single point of failure that kills every route and landmark on stage.
+- [x] ~~**A —** Enumerate OneMap themes.~~ **DONE — 165 layers, 11 usable, saved
+      to `fixtures/onemap-themes.json`.** Result: **no** shelter / bench / toilet
+      / lift / bus-stop layer exists. Themes are a *landmark* source only.
 - [ ] **A —** Anthropic key in `.env`. Verify with `curl localhost:8787/api/health`.
 - [ ] **B — ⚠️ Highest-value 10 minutes of the project.** On the **actual demo
       phone**, run `speechSynthesis.getVoices()` and confirm a **`zh-CN`** and a
@@ -30,9 +39,13 @@ These are cheap to do now and expensive to discover late. Do them in parallel.
 - [ ] **C —** Pick the demo device and confirm HTTPS tunnelling works on it
       (`cloudflared tunnel --url http://localhost:5173`). Mic and GPS need a
       secure context.
-- [ ] **A —** Find data.gov.sg dataset IDs for covered linkways and public
-      toilets; paste into `data/etl.ts`. **Confirm or deny benches.**
-      If benches don't exist, drop the rest term from scoring *and* the pitch.
+- [ ] **A — now the biggest open risk.** Find data.gov.sg dataset IDs for covered
+      linkways and public toilets; paste into `data/etl.ts`. **Confirm or deny
+      benches.** If benches don't exist, drop the rest term from scoring *and*
+      the pitch.
+      > Since OneMap Themes turned out to carry **none** of the comfort layers,
+      > `data/etl.ts` is now the *only* source of shelter/bench/toilet data —
+      > i.e. the only thing standing between us and a working differentiator.
 
 > **Already decided, don't re-litigate:** Green Man+ is out (outdated dataset).
 > Family live-view is out (needs real backend state). Pre-generated TTS is out
@@ -74,7 +87,8 @@ Owns `src/core/**`, `src/providers/{index,types,onemap,fixtures}.ts`,
 - [ ] `server/onemap.ts` — `search`, `reverseGeocode`, `walkRoute`, `retrieveTheme`
 - [ ] `providers/onemap.ts` — browser-side clients hitting our proxy
 - [ ] `core/landmarks.ts` — `collectLandmarks`, `rankForManoeuvre`, `localisedName`
-- [ ] Run `listAllThemes()` once and pick the useful layers (lifts, barrier-free)
+- [x] ~~Run `listAllThemes()` and pick useful layers.~~ **DONE** — see
+      `USEFUL_THEMES` in `server/onemap.ts`. Landmarks only; no comfort layers exist.
 - [ ] `data/etl.ts` — download, clip to corridor, bake the amenity index
 
 ### CP3 — language + validation

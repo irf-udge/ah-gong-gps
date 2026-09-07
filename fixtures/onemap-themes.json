@@ -1,0 +1,71 @@
+{
+  "_note": "Curated from getAllThemesInfo (165 themes) on 2026-09-07. These are LANDMARK sources. OneMap Themes has NO shelter/bench/toilet/lift/bus-stop layers - see CONTRACTS.md 2.2.",
+  "themes": [
+    {
+      "queryName": "communityclubs",
+      "name": "Community Clubs",
+      "category": "Community",
+      "owner": "PEOPLE'S ASSOCIATION"
+    },
+    {
+      "queryName": "communityclubpassionwave",
+      "name": "Community Club / PAssion WaVe Outlet",
+      "category": "Community",
+      "owner": "PEOPLE'S ASSOCIATION"
+    },
+    {
+      "queryName": "park_connector_loop",
+      "name": "Park Connector Loop",
+      "category": "Recreation",
+      "owner": "NATIONAL PARKS BOARD"
+    },
+    {
+      "queryName": "registered_pharmacy",
+      "name": "Retail pharmacy locations",
+      "category": "Health",
+      "owner": "HEALTH SCIENCES AUTHORITY"
+    },
+    {
+      "queryName": "moh_hospitals",
+      "name": "Hospitals",
+      "category": "Health",
+      "owner": "MINISTRY OF HEALTH"
+    },
+    {
+      "queryName": "nparks_parks",
+      "name": "NParks Parks and Nature Reserves",
+      "category": "Environment",
+      "owner": "NATIONAL PARKS BOARD"
+    },
+    {
+      "queryName": "firestation",
+      "name": "Fire Stations",
+      "category": "Emergency Preparedness",
+      "owner": "SINGAPORE CIVIL DEFENCE FORCE"
+    },
+    {
+      "queryName": "ssot_hawkercentres",
+      "name": "Hawker Centres",
+      "category": "Environment",
+      "owner": "NATIONAL ENVIRONMENT AGENCY"
+    },
+    {
+      "queryName": "nationalparks",
+      "name": "Parks",
+      "category": "Recreation",
+      "owner": "NATIONAL PARKS BOARD"
+    },
+    {
+      "queryName": "eldercare",
+      "name": "Eldercare Services",
+      "category": "Family",
+      "owner": "MINISTRY OF HEALTH"
+    },
+    {
+      "queryName": "vaccination_polyclinics",
+      "name": "Vaccination_Polyclinics",
+      "category": "Health",
+      "owner": "MINISTRY OF HEALTH"
+    }
+  ]
+}

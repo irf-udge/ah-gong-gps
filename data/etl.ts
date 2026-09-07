@@ -11,6 +11,12 @@
 //
 // Dataset IDs must be found BY HAND on data.gov.sg and pasted below — this is
 // a Phase 0 task. See DEVPLAN.md.
+//
+// 🔴 THIS FILE IS ON THE CRITICAL PATH. I enumerated all 165 OneMap theme layers
+// with the live token: there is NO shelter, bench, toilet, lift or bus-stop
+// layer. (The brief claimed Themes had "barrier-free facilities, lifts" — only
+// eldercare is real.) So EVERY comfort-scoring input comes from here. Without
+// this ETL, core/comfort.ts has nothing to score and the differentiator is gone.
 
 export interface DatasetSpec {
   key: string;
