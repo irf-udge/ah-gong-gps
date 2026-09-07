@@ -1,0 +1,261 @@
+{
+  "meta": {
+    "owner": "A",
+    "note": "Hand-written demo corridor: Blk 226 Ang Mo Kio Ave 1 → AMK Hub. This is what unblocks B and C on day one — a complete journey with zero API keys. Replace the coordinates with real OneMap responses once the token exists, but KEEP THE SHAPE. Documented in CONTRACTS.md § Fixture shape.",
+    "corridor": "Ang Mo Kio",
+    "isRealApiData": false
+  },
+
+  "transcript": {
+    "zh": "我要去 AMK 那个购物中心",
+    "ms": "Saya nak pergi pusat beli-belah di AMK"
+  },
+
+  "origin": { "lat": 1.3665, "lng": 103.8455 },
+
+  "destination": {
+    "id": "amk-hub",
+    "name": "AMK HUB",
+    "address": "53 ANG MO KIO AVENUE 3 AMK HUB SINGAPORE 569933",
+    "postal": "569933",
+    "block": "53",
+    "road": "ANG MO KIO AVENUE 3",
+    "at": { "lat": 1.369389, "lng": 103.848478 }
+  },
+
+  "route": {
+    "id": "cand-sheltered",
+    "viaWaypoint": { "lat": 1.3678, "lng": 103.8466 },
+    "totalDistanceM": 612,
+    "totalTimeS": 612,
+    "polyline": [
+      { "lat": 1.3665, "lng": 103.8455 },
+      { "lat": 1.367, "lng": 103.846 },
+      { "lat": 1.3678, "lng": 103.8466 },
+      { "lat": 1.3685, "lng": 103.8472 },
+      { "lat": 1.369, "lng": 103.8479 },
+      { "lat": 1.369389, "lng": 103.848478 }
+    ],
+    "manoeuvres": [
+      {
+        "index": 0,
+        "at": { "lat": 1.3665, "lng": 103.8455 },
+        "action": "start",
+        "rawInstruction": "Head northeast on Ang Mo Kio Avenue 1",
+        "distanceM": 0
+      },
+      {
+        "index": 1,
+        "at": { "lat": 1.3678, "lng": 103.8466 },
+        "action": "right",
+        "rawInstruction": "Turn right onto Ang Mo Kio Avenue 3",
+        "distanceM": 195
+      },
+      {
+        "index": 2,
+        "at": { "lat": 1.369, "lng": 103.8479 },
+        "action": "cross",
+        "rawInstruction": "Cross at the signalised crossing",
+        "distanceM": 260
+      },
+      {
+        "index": 3,
+        "at": { "lat": 1.369389, "lng": 103.848478 },
+        "action": "arrive",
+        "rawInstruction": "Arrive at AMK Hub",
+        "distanceM": 157
+      }
+    ]
+  },
+
+  "score": {
+    "total": 1.71,
+    "shelterCoverage": 0.82,
+    "restPoints": 2,
+    "toiletsNear": 1,
+    "longestUnshelteredRunM": 60,
+    "extraDistanceM": 74,
+    "stairsCount": 0
+  },
+
+  "rationale": {
+    "zh": "这条路大部分有盖，中途有2张长椅。",
+    "ms": "Laluan ini kebanyakannya berbumbung, ada 2 bangku di sepanjang jalan."
+  },
+
+  "rejected": [
+    {
+      "candidate": {
+        "id": "cand-direct",
+        "viaWaypoint": null,
+        "totalDistanceM": 538,
+        "totalTimeS": 538,
+        "polyline": [
+          { "lat": 1.3665, "lng": 103.8455 },
+          { "lat": 1.3673, "lng": 103.8464 },
+          { "lat": 1.3682, "lng": 103.8474 },
+          { "lat": 1.369389, "lng": 103.848478 }
+        ],
+        "manoeuvres": [
+          {
+            "index": 0,
+            "at": { "lat": 1.3665, "lng": 103.8455 },
+            "action": "start",
+            "rawInstruction": "Head northeast",
+            "distanceM": 0
+          },
+          {
+            "index": 1,
+            "at": { "lat": 1.3682, "lng": 103.8474 },
+            "action": "straight",
+            "rawInstruction": "Continue onto the overhead bridge",
+            "distanceM": 310
+          },
+          {
+            "index": 2,
+            "at": { "lat": 1.369389, "lng": 103.848478 },
+            "action": "arrive",
+            "rawInstruction": "Arrive at AMK Hub",
+            "distanceM": 228
+          }
+        ]
+      },
+      "score": {
+        "total": 0.42,
+        "shelterCoverage": 0.21,
+        "restPoints": 0,
+        "toiletsNear": 0,
+        "longestUnshelteredRunM": 300,
+        "extraDistanceM": 0,
+        "stairsCount": 1
+      },
+      "rationale": {
+        "zh": "这条路比较近，但是要走天桥，而且大部分没有盖。",
+        "ms": "Laluan ini lebih dekat, tetapi ada jejantas dan kebanyakannya tidak berbumbung."
+      }
+    }
+  ],
+
+  "landmarks": [
+    {
+      "id": "lm-blk226h",
+      "name": "Blk 226H Market & Food Centre",
+      "nameZh": "226H 巴刹",
+      "nameMs": "Pasar Blok 226H",
+      "kind": "hawker",
+      "at": { "lat": 1.36705, "lng": 103.84605 },
+      "distanceM": 18,
+      "bearingDeg": 42
+    },
+    {
+      "id": "lm-busstop-amk3",
+      "name": "Bus Stop 54261",
+      "nameZh": "巴士站",
+      "nameMs": "Perhentian Bas",
+      "kind": "bus_stop",
+      "at": { "lat": 1.36782, "lng": 103.84668 },
+      "distanceM": 11,
+      "bearingDeg": 88
+    },
+    {
+      "id": "lm-linkway-amk3",
+      "name": "Covered Linkway",
+      "nameZh": "有盖走廊",
+      "nameMs": "Laluan Berbumbung",
+      "kind": "shelter",
+      "at": { "lat": 1.36898, "lng": 103.84786 },
+      "distanceM": 9,
+      "bearingDeg": 15
+    },
+    {
+      "id": "lm-amk-hub",
+      "name": "AMK Hub",
+      "kind": "building",
+      "at": { "lat": 1.369389, "lng": 103.848478 },
+      "distanceM": 0,
+      "bearingDeg": 0
+    },
+    {
+      "id": "lm-blk226",
+      "name": "Block 226",
+      "nameZh": "226 座",
+      "nameMs": "Blok 226",
+      "kind": "block",
+      "at": { "lat": 1.3665, "lng": 103.8455 },
+      "distanceM": 6,
+      "bearingDeg": 270
+    }
+  ],
+
+  "steps": {
+    "zh": [
+      {
+        "index": 0,
+        "landmarkId": "lm-blk226h",
+        "action": "start",
+        "spokenText": "走到 226H 巴刹。",
+        "displayText": "走到巴刹"
+      },
+      {
+        "index": 1,
+        "landmarkId": "lm-busstop-amk3",
+        "action": "right",
+        "spokenText": "看到巴士站，向右转。",
+        "displayText": "向右转"
+      },
+      {
+        "index": 2,
+        "landmarkId": "lm-linkway-amk3",
+        "action": "cross",
+        "spokenText": "走进有盖走廊，过马路。这里有长椅，可以休息。",
+        "displayText": "过马路"
+      },
+      {
+        "index": 3,
+        "landmarkId": "lm-amk-hub",
+        "action": "arrive",
+        "spokenText": "AMK Hub 就在前面，您到了。",
+        "displayText": "您到了"
+      }
+    ],
+    "ms": [
+      {
+        "index": 0,
+        "landmarkId": "lm-blk226h",
+        "action": "start",
+        "spokenText": "Berjalan ke Pasar Blok 226H.",
+        "displayText": "Ke pasar"
+      },
+      {
+        "index": 1,
+        "landmarkId": "lm-busstop-amk3",
+        "action": "right",
+        "spokenText": "Apabila nampak perhentian bas, belok kanan.",
+        "displayText": "Belok kanan"
+      },
+      {
+        "index": 2,
+        "landmarkId": "lm-linkway-amk3",
+        "action": "cross",
+        "spokenText": "Masuk laluan berbumbung, kemudian lintas jalan. Ada bangku di sini jika mahu berehat.",
+        "displayText": "Lintas jalan"
+      },
+      {
+        "index": 3,
+        "landmarkId": "lm-amk-hub",
+        "action": "arrive",
+        "spokenText": "AMK Hub ada di hadapan. Anda sudah sampai.",
+        "displayText": "Anda sudah sampai"
+      }
+    ]
+  },
+
+  "amenities": [
+    { "id": "poi-shelter-1", "kind": "shelter", "name": "Covered Linkway AMK Ave 3", "at": { "lat": 1.36898, "lng": 103.84786 } },
+    { "id": "poi-shelter-2", "kind": "shelter", "name": "Covered Linkway AMK Ave 1", "at": { "lat": 1.36712, "lng": 103.84612 } },
+    { "id": "poi-bench-1", "kind": "bench", "name": null, "at": { "lat": 1.36784, "lng": 103.84671 } },
+    { "id": "poi-bench-2", "kind": "bench", "name": null, "at": { "lat": 1.36901, "lng": 103.84792 } },
+    { "id": "poi-toilet-1", "kind": "toilet", "name": "AMK Hub Level 1", "at": { "lat": 1.36941, "lng": 103.84852 } },
+    { "id": "poi-lift-1", "kind": "lift", "name": "AMK Hub Lift Lobby", "at": { "lat": 1.36936, "lng": 103.8484 } }
+  ]
+}

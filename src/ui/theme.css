@@ -1,0 +1,117 @@
+/* OWNER: C (Journey experience) — do not edit unless you are the owner.
+ *
+ * Design tokens for a 70+ user holding a phone in Singapore sunlight.
+ * The constraints are not stylistic preferences — they are the product:
+ *   · one primary action per screen
+ *   · type far larger than any default
+ *   · high contrast, never grey-on-grey
+ *   · tap targets you can hit without looking
+ *   · NEVER a list of upcoming steps — one step at a time, always
+ */
+
+:root {
+  /* Type — these are minimums, not suggestions. */
+  --fs-step: 44px; /* the current instruction — the biggest thing on screen */
+  --fs-xl: 34px;
+  --fs-lg: 28px; /* body text floor */
+  --fs-md: 24px; /* smallest text a senior ever reads */
+  --fs-sm: 18px; /* debug / judge view ONLY — never senior-facing */
+
+  --lh-tight: 1.25;
+  --lh-body: 1.5;
+
+  /* Colour — high contrast in both directions. */
+  --bg: #ffffff;
+  --fg: #101010;
+  --fg-muted: #3d3d3d; /* still passes contrast; do not lighten further */
+
+  --accent: #0b5fd0; /* actions */
+  --accent-fg: #ffffff;
+  --danger: #b3261e; /* "I'm lost" */
+  --danger-fg: #ffffff;
+  --ok: #0f6b3f;
+
+  --border: #101010;
+
+  /* Geometry */
+  --tap-min: 64px; /* WCAG says 44px; our user is not WCAG's median */
+  --radius: 16px;
+  --gap: 20px;
+  --pad-screen: 24px;
+
+  --font: system-ui, -apple-system, 'Segoe UI', 'Noto Sans SC', 'Noto Sans',
+    sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d0d0d;
+    --fg: #fafafa;
+    --fg-muted: #c9c9c9;
+    --accent: #6aa9ff;
+    --accent-fg: #06121f;
+    --border: #fafafa;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-body);
+  /* The senior never needs to pinch-zoom, and accidental zoom loses the button. */
+  -webkit-text-size-adjust: 100%;
+}
+
+.screen {
+  min-height: 100%;
+  padding: var(--pad-screen);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+/* The one big button. The home screen is essentially just this. */
+.btn-primary {
+  min-height: var(--tap-min);
+  padding: 20px 28px;
+  font-size: var(--fs-xl);
+  font-family: inherit;
+  font-weight: 700;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border: 3px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.btn-danger {
+  composes: btn-primary;
+  background: var(--danger);
+  color: var(--danger-fg);
+}
+
+.step-text {
+  font-size: var(--fs-step);
+  line-height: var(--lh-tight);
+  font-weight: 700;
+}
+
+/* Judge view only. Never shown to the senior. */
+.debug {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  font-family: ui-monospace, monospace;
+}

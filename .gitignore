@@ -1,0 +1,29 @@
+node_modules/
+dist/
+.vite/
+
+# Secrets — never commit. See .env.example for the shape.
+.env
+.env.local
+.env.*.local
+
+# Baked datasets are large and regenerable via `npm run etl`.
+# Keep the demo-corridor slice (see data/README) but not full national dumps.
+data/raw/
+data/*.full.geojson
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Claude Code — per-machine permission state, not team config.
+# A shared .claude/settings.json (if we add one) SHOULD be committed.
+.claude/settings.local.json
+
+# Test + build output
+coverage/
+*.tsbuildinfo
+*.log

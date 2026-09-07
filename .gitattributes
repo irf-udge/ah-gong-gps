@@ -1,0 +1,19 @@
+# Normalise line endings so the three of us don't generate phantom diffs by
+# being on different operating systems. Text is LF in the repo; git converts on
+# checkout for whoever needs CRLF.
+* text=auto eol=lf
+
+# Keep these exactly as-is.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.woff binary
+*.woff2 binary
+
+# Generated — collapse it in diffs and don't count it in language stats.
+package-lock.json -diff linguist-generated
