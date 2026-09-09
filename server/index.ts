@@ -11,7 +11,12 @@ import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
 import { createHash } from 'node:crypto';
-import amenitiesData from '../data/amenities.json';
+// ⚠️ `with { type: 'json' }` — required by Node's own ESM loader (which is
+// what actually runs this on Vercel, unlike tsx/Vite locally) since Node 22:
+// a JSON import without the attribute now throws ERR_IMPORT_ATTRIBUTE_MISSING
+// rather than just working. Found live, one deploy after the .js-extension
+// fix below fixed the previous error.
+import amenitiesData from '../data/amenities.json' with { type: 'json' };
 // ⚠️ Explicit .js extensions below — added deploying to Vercel. tsx (local
 // dev) and Vite (the client bundle) both resolve extensionless/`.js`-suffixed
 // TS specifiers flexibly, but Vercel's Node.js function runtime transpiles
