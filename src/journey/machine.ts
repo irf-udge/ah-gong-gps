@@ -28,7 +28,8 @@ export type JourneyEvent =
   | { type: 'IM_LOST' }
   | { type: 'REANCHORED'; journey: Journey | null }
   | { type: 'ARRIVED' }
-  | { type: 'ERROR'; message: string };
+  | { type: 'ERROR'; message: string }
+  | { type: 'RESET' };
 
 export const initialState: JourneyState = {
   phase: 'idle',
@@ -42,13 +43,17 @@ export const initialState: JourneyState = {
 /**
  * Pure reducer — unit-test the whole flow with no DOM and no network.
  *
- * Two universal escape hatches are handled BEFORE the phase-specific switch,
- * per this file's own header: "Any state can fall back to `listening` via
- * 'say it again'; assume mis-transcription everywhere" (SAY_AGAIN) and
- * CONTRACTS.md § UI rules' "Error tolerance everywhere" (ERROR). Every other
- * event only does something from the specific phase(s) shown in the diagram
- * above; anywhere else it's a no-op (returns state unchanged) rather than an
- * error — a stray/duplicate/out-of-order event should never crash the app.
+ * Three universal escape hatches are handled BEFORE the phase-specific
+ * switch, per this file's own header: "Any state can fall back to
+ * `listening` via 'say it again'; assume mis-transcription everywhere"
+ * (SAY_AGAIN), CONTRACTS.md § UI rules' "Error tolerance everywhere" (ERROR),
+ * and RESET — a genuine gap found wiring up ui/App.tsx's ArrivedScreen: no
+ * other event returns to `idle` at all, so "go home" from the arrived screen
+ * had nothing to dispatch. RESET wipes back to `initialState` from any phase.
+ * Every other event only does something from the specific phase(s) shown in
+ * the diagram above; anywhere else it's a no-op (returns state unchanged)
+ * rather than an error — a stray/duplicate/out-of-order event should never
+ * crash the app.
  *
  * ⚠️ `planning` (see the diagram above) is never SET by this function. By the
  * time `RESOLVED` is dispatched, the caller has already run the full
@@ -64,6 +69,9 @@ export function reduce(state: JourneyState, event: JourneyEvent): JourneyState {
   }
   if (event.type === 'ERROR') {
     return { ...state, phase: 'error', error: event.message };
+  }
+  if (event.type === 'RESET') {
+    return initialState;
   }
 
   switch (state.phase) {

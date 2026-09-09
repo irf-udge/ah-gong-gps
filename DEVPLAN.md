@@ -318,7 +318,7 @@ split by role anymore, just grouped by checkpoint.)
 
 ---
 
-## 👤 Lija — Journey experience (25%)
+## 👤 Lija — Journey experience (45%)
 
 Owns `src/ui/**`, `src/journey/**`, `src/main.tsx`.
 
@@ -379,16 +379,48 @@ Owns `src/ui/**`, `src/journey/**`, `src/main.tsx`.
       (verified at 5x = 5 m/s, and by construction safe up to roughly
       `2×GEOFENCE_RADIUS_M / (TICK_MS/1000)` ≈ 100 m/s) has no such risk.
       Don't crank the judge-view speed slider past that without re-checking.
-- [ ] `ui/App.tsx` — replace the scaffold placeholder with the screen router
-- [ ] `HomeScreen` — one big button, nothing else
-- [ ] `JourneyScreen` — **ONE step, never a list**
-- [ ] Wire Lija's UI → Irfan's TTS and fixture data. **This is CP1.**
-      ⚠️ **`providers/fixtures.ts::buildDemoJourney(lang)` (Irfan, done) is the
-      call to make when `demoMode` is true** — it returns a complete, playable
-      `Journey` straight from the fixture (origin, destination, scored route,
-      landmarks, steps). Don't hit `POST /api/journey` for the demo path; that
-      endpoint doesn't exist yet regardless (still 501). See CONTRACTS.md
-      § Provider interfaces.
+- [x] ~~`ui/App.tsx` — replace the scaffold placeholder with the screen
+      router~~ **DONE, LIVE-VERIFIED** (Irfan, on Lija's behalf). Owns both
+      the phase->screen mapping AND the top-level orchestration (reducer,
+      providers, the demo pipeline) — a router with nothing driving state
+      transitions wouldn't route anywhere. `?judge=1` is checked first,
+      independent of phase, rendering `JudgeView` with real fixture-derived
+      props. `planning`/`ready`/`lost`/`error` fall back to `ListeningScreen`
+      rather than a blank screen — none have a dedicated screen yet
+      (`ready` auto-advances to `navigating` in the same tick and is never
+      actually rendered; `planning` is unreachable — see machine.ts).
+- [x] ~~`HomeScreen` — one big button, nothing else~~ **DONE, LIVE-VERIFIED.**
+      Button fills the whole screen (`flex: 1` inside `.screen`), uses the
+      REAL localised `tapToSpeak` phrase from `src/phrases` (not invented
+      text) — confirmed rendering correctly for both `zh` and `ms`.
+- [ ] `JourneyScreen` — **ONE step, never a list**. Still a stub — App.tsx
+      passes it correct real props (`step`, `stepCount`, `onImLost`,
+      `onRepeat`) but the component itself just renders placeholder text.
+- [x] ~~Wire Lija's UI → Irfan's TTS and fixture data. **This is CP1.**~~
+      **DONE, LIVE-VERIFIED — the full demo lifecycle plays end to end.**
+      Tap -> `primeForUserGesture()` (synchronous, before any await, per
+      tts.ts's file header) -> best-effort mic permission request (never
+      blocks the fixture path on denial) -> 1.2s "listening" pacing ->
+      canned transcript -> `buildDemoJourney(lang)` -> speaks each step via
+      real `speechSynthesis` as `SimulatedProvider` walks the real route ->
+      `arrived`. Verified in 3 separate clean browser tabs (zh, ms, and a
+      plain reliability re-check), zero console errors each time; confirmed
+      `speechSynthesis.speaking === true` during navigation (the actual
+      speak() call, not just that it didn't throw).
+      Two real gaps found and fixed while wiring this up, beyond the two
+      already documented under `shouldAdvance` above:
+      1. **No event returned to `idle`.** `ArrivedScreen`'s "go home" had
+         nothing to dispatch — `SAY_AGAIN` goes to `listening`, not `idle`,
+         and no other `JourneyEvent` reaches `idle` after the flow starts.
+         Added `RESET` (universal, like `SAY_AGAIN`/`ERROR` — wipes back to
+         `initialState` from any phase) to `journey/machine.ts`.
+      2. **`createLocationProvider` had no way to run faster than
+         `SIM_SPEED_MPS` (1 m/s).** At the realistic default, a ~700m route
+         takes ~12 minutes to walk — found by actually timing a live run.
+         Added an optional `speedMps` param (`providers/index.ts`), passed
+         through to `SimulatedProvider` only for `'simulated'` mode; App.tsx
+         now drives playback at 20x (verified safe against
+         `GEOFENCE_RADIUS_M`/`TICK_MS` earlier this session).
 
 ### CP2/CP3
 - [ ] `ListeningScreen` — visible "still working" state; silence reads as broken

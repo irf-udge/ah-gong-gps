@@ -412,13 +412,17 @@ the bundle is built (once, at app start). Get one separately, once a journey
 exists:
 
 ```ts
-function createLocationProvider(mode: 'simulated'|'gps'|'manual', path?: readonly LatLng[]): LocationProvider
+function createLocationProvider(mode: 'simulated'|'gps'|'manual', path?: readonly LatLng[], speedMps?: number): LocationProvider
 ```
 
 `'simulated'` throws immediately if `path` is missing/empty — a caller bug,
-not a case to paper over. `createProviders()` and `createLocationProvider()`
-are both implemented (`src/providers/index.ts`) and runtime-verified, not
-just typechecked.
+not a case to paper over. `speedMps` is `'simulated'`-only (ignored for
+`'gps'`/`'manual'`) and defaults to `SIM_SPEED_MPS` — 1 m/s, realistic
+walking pace, meant for developing/testing the geofence logic, NOT for an
+on-stage demo. Pass an accelerated value explicitly for actual playback; see
+§ below for why this parameter had to be added after the fact.
+`createProviders()` and `createLocationProvider()` are both implemented
+(`src/providers/index.ts`) and runtime-verified, not just typechecked.
 
 ### Fixture-mode journey assembly
 
@@ -779,3 +783,29 @@ speed: a realistic "sped up for the stage" multiplier (verified safe at
 5x = 5 m/s) has no such risk, and the safe ceiling is roughly
 `2×GEOFENCE_RADIUS_M / (TICK_MS/1000)` ≈ 100 m/s. Don't crank the judge-view
 speed slider past that without re-checking.
+
+### Two more real gaps, found wiring up `ui/App.tsx`
+
+Same pattern again: build the actual consumer, run it for real, find what's
+missing.
+
+1. **Nothing returned to `idle`.** `journey/machine.ts`'s `JourneyEvent` union
+   had `SAY_AGAIN` (→ `listening`) as the only universal escape hatch —
+   there was no event that ever produced `idle` once the flow left it.
+   `ArrivedScreen`'s "go home" button had nothing to dispatch. Added `RESET`
+   (universal, same tier as `SAY_AGAIN`/`ERROR`): wipes back to
+   `initialState` from any phase.
+2. **`createLocationProvider` had no way to run faster than
+   `SIM_SPEED_MPS`.** Its signature only took `(mode, path)` — no speed
+   parameter existed at all. At the realistic 1 m/s default, timing an
+   actual live run showed a ~700m route takes on the order of 12 minutes to
+   walk, which is obviously unusable for an on-stage demo despite
+   `SimulatedProvider`'s own doc explicitly framing `setSpeed()`/`jumpTo()`
+   as "the actual on-stage mechanism, not an afterthought" — the
+   *construction-time* path to a fast demo simply didn't exist yet. Added an
+   optional `speedMps` param to `createLocationProvider` (ignored for
+   `'gps'`/`'manual'`, passed straight through to `SimulatedProvider`
+   otherwise). `ui/App.tsx` now drives the demo walk at 20x — verified live,
+   walks the real route in well under a minute with zero console errors,
+   reaching `arrived` in three separate clean-tab runs (Mandarin, Malay, and
+   a plain reliability re-check).

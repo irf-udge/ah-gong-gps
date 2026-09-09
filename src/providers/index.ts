@@ -62,14 +62,28 @@ export function createProviders(opts: ProviderOptions): Providers {
  * providers/types.ts). `path` is required for `'simulated'` — that's the
  * primary demo path (judges are indoors), not a fallback, so a missing path
  * there is a real bug in the caller, not a case to silently paper over.
+ *
+ * `speedMps` is `'simulated'`-only (ignored otherwise — GPS/Manual have no
+ * playback speed concept) and defaults to `SIM_SPEED_MPS` (1 m/s, realistic
+ * walking pace) if omitted. ⚠️ That default is for developing/testing the
+ * geofence logic at a believable pace, NOT for an on-stage demo — found
+ * wiring up ui/App.tsx: at 1x, a real ~700m route takes ~12 minutes to walk.
+ * Callers driving an actual demo playback should pass an accelerated value
+ * explicitly (`SimulatedProvider`'s own doc names `setSpeed()`/`jumpTo()` as
+ * "the actual on-stage mechanism, not an afterthought" — this parameter is
+ * the equivalent at construction time).
  */
-export function createLocationProvider(mode: ProviderOptions['location'], path?: readonly LatLng[]): LocationProvider {
+export function createLocationProvider(
+  mode: ProviderOptions['location'],
+  path?: readonly LatLng[],
+  speedMps?: number,
+): LocationProvider {
   switch (mode) {
     case 'simulated':
       if (!path || path.length === 0) {
         throw new Error('createLocationProvider: "simulated" needs a non-empty route path');
       }
-      return new SimulatedProvider(path);
+      return new SimulatedProvider(path, speedMps);
     case 'gps':
       return new GeolocationProvider();
     case 'manual':
