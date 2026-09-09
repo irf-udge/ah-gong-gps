@@ -756,13 +756,28 @@ of Hooks), so TS's control-flow narrowing from a later `if (!langChosen)
 return` can't retroactively apply to those closures. A separate boolean gate
 avoided that blast radius entirely.
 
-No other file needed changes — `HomeScreen`'s `.language` badge and inline
-`lang === 'ms' ? ... : ...` ternaries already work correctly once `lang` is
-populated. Deliberately NOT in scope: an ongoing in-app language switcher —
-this is a one-time picker + persistence only, matching the literal ask. A
-wrong pick's only in-app recovery today is clearing site data or revisiting
-with `?lang=`; a real switcher (e.g. making the `.language` badge tappable)
-is a natural, documented follow-up, not done here.
+No other file needed changes at the time — `HomeScreen`'s `.language` badge
+and inline `lang === 'ms' ? ... : ...` ternaries already worked correctly
+once `lang` was populated. Deliberately NOT in scope THEN: an ongoing
+in-app language switcher (a one-time picker + persistence only, matching
+the literal ask) — flagged as a follow-up since a wrong pick's only
+recovery was clearing site data or revisiting with `?lang=`.
+
+### 2026-09-10 (later same day) — made the `.language` badge tappable
+
+The flagged follow-up above, done: `HomeScreen`'s `.language` badge is now
+a real `<button>` (was a plain `<span>`) — tapping it toggles directly
+between `zh`/`ms` (only two real options, so a straight toggle beats
+reopening the full `LanguageScreen`) and persists the new choice the same
+way `LanguageScreen` does. Safe with no confirmation needed: this badge
+only ever renders on `HomeScreen`, which only renders when `state.phase` is
+`'idle'` (or a defensive fallback for a missing journey) — there is never
+an in-progress journey underneath it to invalidate. Deliberate, narrow,
+documented exception to two rules: `HomeScreen`'s own "no settings" header
+comment (this is a correction affordance, not a menu) and CONTRACTS.md §
+8's 64px tap-target rule (padding+negative-margin gives a comfortable
+invisible hit area without visually bloating the header — acceptable for a
+rarely-used corrective control, not a primary action).
 
 ---
 

@@ -449,6 +449,18 @@ export function App() {
     setLangChosen(true);
   }, []);
 
+  // HomeScreen's `.language` badge — a correction for a wrong initial pick,
+  // not a settings menu (see HomeScreen.tsx's header for why this is safe:
+  // it only ever renders where no journey is in progress). A straight
+  // toggle is enough with exactly two selectable languages.
+  const handleChangeLanguage = useCallback(() => {
+    setLang((current) => {
+      const next: Lang = current === 'ms' ? 'zh' : 'ms';
+      writeStoredLang(next);
+      return next;
+    });
+  }, []);
+
   if (judgeMode) {
     return (
       <JudgeView
@@ -469,7 +481,7 @@ export function App() {
 
   switch (state.phase) {
     case 'idle':
-      return <HomeScreen lang={lang} onSpeak={handleSpeak} />;
+      return <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} />;
 
     case 'listening':
     case 'resolving':
@@ -490,11 +502,11 @@ export function App() {
       );
 
     case 'ready':
-      return state.journey ? <ConfirmationScreen journey={state.journey} lang={lang} onStart={handleStartJourney} onChange={handleReset} /> : <HomeScreen lang={lang} onSpeak={handleSpeak} />;
+      return state.journey ? <ConfirmationScreen journey={state.journey} lang={lang} onStart={handleStartJourney} onChange={handleReset} /> : <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} />;
 
     case 'navigating': {
       const step = state.journey?.steps[state.currentStepIndex];
-      if (!state.journey || !step) return <HomeScreen lang={lang} onSpeak={handleSpeak} />; // defensive — shouldn't happen
+      if (!state.journey || !step) return <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} />; // defensive — shouldn't happen
       return (
         <JourneyScreen
           lang={lang}
@@ -511,7 +523,7 @@ export function App() {
       return state.journey ? (
         <ArrivedScreen lang={lang} destination={state.journey.destination} onHome={handleReset} />
       ) : (
-        <HomeScreen lang={lang} onSpeak={handleSpeak} />
+        <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} />
       );
 
     default:

@@ -87,7 +87,11 @@ body {
 .home-screen, .confirmation-screen { justify-content: space-between; }
 .language-screen { justify-content: center; }
 .brand { display: flex; justify-content: space-between; align-items: center; font-weight: 900; font-size: 34px; letter-spacing: -0.04em; }
-.language { color: var(--fg-muted); font-weight: 600; }
+/* Padding + negative margin expands the invisible tap area without
+   visually bloating the header — a deliberate, scoped exception to the
+   64px tap-target rule (CONTRACTS.md § 8): this is a rarely-used
+   corrective control, not a primary action a senior must hit precisely. */
+.language { background: transparent; border: 0; padding: 12px; margin: -12px; font: inherit; color: var(--fg-muted); font-weight: 600; cursor: pointer; }
 .eyebrow { margin: 0; color: var(--accent); font-weight: 800; font-size: var(--fs-md); }
 h1 { font-size: clamp(40px, 11vw, 64px); line-height: 1.05; margin: 8px 0 16px; letter-spacing: -0.04em; }
 .location-line, .route-meta, .comfort-note { font-size: var(--fs-lg); margin: 0; }

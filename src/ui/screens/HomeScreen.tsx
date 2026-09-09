@@ -9,6 +9,15 @@
 //
 // No map. No menu. No settings.
 //
+// ⚠️ 2026-09-10: the `.language` badge IS tappable, despite "no settings"
+// above — deliberate, narrow exception, not a menu. LanguageScreen (screen
+// zero) fixed "no way to switch language at all," but a wrong pick there
+// still had zero in-app recovery — exactly the same escape-hatch problem,
+// one level deeper. Safe to toggle immediately with no confirmation: this
+// badge only ever renders here, and HomeScreen only renders when
+// state.phase is 'idle' (or a defensive fallback for a missing journey), so
+// there is never an in-progress journey underneath it to invalidate.
+//
 // ⚠️ This component only owns step 2 — `onSpeak` is called SYNCHRONOUSLY from
 // the raw click, and ui/App.tsx's handler primes TTS as the very first thing
 // inside it (must happen before any `await`, see tts.ts's file header).
@@ -24,13 +33,24 @@ import { ms, zh } from '../../phrases';
 export interface HomeScreenProps {
   lang: Lang;
   onSpeak: () => void;
+  onChangeLanguage: () => void;
 }
 
-export function HomeScreen({ lang, onSpeak }: HomeScreenProps) {
+export function HomeScreen({ lang, onSpeak, onChangeLanguage }: HomeScreenProps) {
   const book = lang === 'ms' ? ms : zh;
   return (
     <main className="screen home-screen">
-      <header className="brand"><span>EZ Jalan</span><span className="language">{lang === 'ms' ? 'Bahasa Melayu' : '中文'}</span></header>
+      <header className="brand">
+        <span>EZ Jalan</span>
+        <button
+          type="button"
+          className="language"
+          onClick={onChangeLanguage}
+          aria-label="中文 / Bahasa Melayu — tap to switch language"
+        >
+          {lang === 'ms' ? 'Bahasa Melayu' : '中文'}
+        </button>
+      </header>
       <section className="home-copy"><p className="eyebrow">{lang === 'ms' ? 'Jalan dengan tenang' : '轻松出发'}</p><h1>{lang === 'ms' ? 'Ke mana anda mahu pergi?' : '您想去哪里？'}</h1><p className="location-line">{lang === 'ms' ? 'Anda berhampiran Blk 226, Ang Mo Kio' : '您在宏茂桥第226座附近'}</p></section>
       <button type="button" className="mic-button" aria-label={book.tapToSpeak} onClick={onSpeak}><span className="mic-symbol">●</span><span>{lang === 'ms' ? 'Tekan dan cakap' : '按下，说出目的地'}</span></button>
       <p className="quick-destinations">AMK Hub　·　Wet market　·　Clinic</p>

@@ -861,7 +861,11 @@ Not style preferences — these are the reason the product exists.
   in full: never a real map, never a substitute for the one-instruction focus.
 - Type: step text ≥ 44px, body ≥ 28px, nothing senior-facing below 24px.
 - Contrast: high, both directions. Never grey-on-grey.
-- Tap targets ≥ 64px.
+- Tap targets ≥ 64px. ⚠️ Narrow exception, 2026-09-10: `HomeScreen`'s
+  `.language` badge (tap to switch `zh`/`ms`) uses padding + a negative
+  margin for a comfortable invisible hit area instead of a visible 64px
+  control — a rarely-used correction, not a primary action a senior must
+  hit precisely.
 - **Error tolerance everywhere.** Assume mis-transcription. Always offer
   "say it again".
 - The clarification loop is a **feature to demo**, not an error path.
