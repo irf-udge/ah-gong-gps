@@ -848,3 +848,57 @@ visible break.
 - [ ] On the demo phone: mic, zh-CN + ms-MY speech, GPS advance over one real
       block, "I'm lost" from an off-route position
 - [ ] Network-pull rehearsal passes
+- [x] ~~Deployed to Vercel, reachable from a phone browser with no login~~
+      **DONE, 2026-09-10** — see the note below; two real deploy-time bugs
+      found and fixed, and public access needed an explicit protection
+      change.
+
+### 2026-09-10 — deployed to Vercel; found two real ESM-only runtime bugs
+
+The frontend (`vite build` → `dist/`) was already auto-deploying fine via
+Vercel's own Vite detection from the earlier "just link the repo" step, but
+every `/api/*` call 404'd — nothing on Vercel was ever running the Express
+server, confirmed live (`GET /api/health` → 404). Fixed with the standard
+pattern: `api/index.ts` re-exports `server/index.ts`'s Express `app` as the
+default export, `vercel.json` rewrites `/api/(.*)` to that one function so
+Express's own already-`/api/`-prefixed routes keep matching unchanged, and
+`server/index.ts`'s `app.listen()` is now guarded on `!process.env.VERCEL`
+(set automatically by the platform) since a serverless function invokes the
+exported app directly per request and never needs to bind a port.
+
+That alone still 500'd on every request (`FUNCTION_INVOCATION_FAILED`) —
+found via `get_runtime_logs`, not visible anywhere in the build output.
+**Two real, sequential bugs, both specific to Node's own ESM loader** (tsx
+locally and Vite for the client bundle both paper over these — this only
+ever showed up in the actually-deployed runtime):
+1. `ERR_MODULE_NOT_FOUND` — every relative import needs a fully-specified
+   extension (`from './onemap.js'`, not `from './onemap'`) for Node's native
+   ESM resolution, unlike tsx/Vite's flexible bundler-style resolution.
+   Fixed across the whole graph `api/index.ts` actually loads at runtime:
+   `server/index.ts` + everything it imports (`onemap.ts`, `meralion.ts`,
+   `llm.ts`, `cache.ts`, and the `src/core/comfort|landmarks|validate.ts` +
+   `src/phrases` it pulls in). `import type` lines untouched — those are
+   erased at compile time, so the extension is moot for them.
+   `moduleResolution: "bundler"` (tsconfig.json) explicitly permits a `.js`
+   specifier resolving to a sibling `.ts` file, so this didn't change
+   typechecking, Vite, or tsx at all — confirmed via a full
+   tsc/build/test/`dev:api` pass after each fix.
+2. `ERR_IMPORT_ATTRIBUTE_MISSING` — Node 22+ (Vercel's function runtime is
+   Node 24.x) requires an explicit `with { type: 'json' }` attribute on a
+   JSON import; `import amenitiesData from '../data/amenities.json'` alone
+   now throws instead of just working.
+
+Also had to explicitly disable the project's Vercel Authentication (SSO)
+deployment protection — it was `all_except_custom_domains`, which still
+gates every `*.vercel.app` URL (this project has no custom domain), so a
+phone not logged into the Vercel account would've hit a login wall. Flagging
+this explicitly since it's a real access-control change, not just code: the
+deployment is now genuinely public, with no auth in front of it.
+
+**Still open, not done here:** `MERALION_API_KEY`/`ONEMAP_EMAIL`/
+`ONEMAP_PASSWORD`/`GEMINI_API_KEY` are not set as Vercel project environment
+variables (confirmed live — `/api/health` reports all three `false` on the
+deployment, `true` locally) — no available tool can set them, so the real
+(non-demo) pipeline will 502 on Vercel until they're added by hand via the
+dashboard. `?demo=1` needs none of them and was live-verified working end
+to end on the actual production URL.
