@@ -195,6 +195,15 @@ Other things that will bite you:
   field does the same. Check for the literal string — `null`/`undefined`
   checks alone will miss it.) Expect *"Block 226"* far more often than *"the
   coffee shop"*. Write the demo script around what the data actually returns.
+- **`buffer` is NOT a hard cutoff either** — same failure mode as `extents` on
+  theme queries, found independently while building `core/landmarks.ts`. A
+  `buffer=50` request returned buildings up to **262 m** away; MRT stations
+  were the worst offenders (233-262 m), ordinary HDB blocks a more modest but
+  still-over 54-90 m. Reproduced at 3 different points along the real demo
+  route, not a one-off. `server/onemap.ts`'s `reverseGeocode` now filters
+  results to the actual haversine distance client-side — **never trust an
+  OneMap radius/bbox parameter as a real cutoff**, this is now the second
+  confirmed case.
 - **Walk routes return `route_geometry` as an encoded polyline.** Decode with
   `core/geo.decodePolyline` (precision 5). `pt` returns a totally different
   OTP-shaped payload — we don't use it.

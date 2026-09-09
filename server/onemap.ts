@@ -25,7 +25,7 @@
 // the literal string, see `nilToNull` below.
 
 import type { BBox, Building, LatLng, Place, Poi, PoiKind, RouteCandidate, Manoeuvre, Action } from '../src/core/types';
-import { decodePolyline } from '../src/core/geo';
+import { decodePolyline, haversineM } from '../src/core/geo';
 import { memoizeAsync } from './cache';
 
 export const ONEMAP_BASE = 'https://www.onemap.gov.sg';
@@ -249,6 +249,13 @@ interface OneMapRevGeocodeResponse {
  * Returns at most 10 BUILDINGS within `bufferM` (max 500; 20 for roads).
  * `BUILDINGNAME` is the literal string "NIL" for unnamed buildings — most
  * HDB blocks — so fall back to `Block {BLOCK} {ROAD}`.
+ *
+ * ⚠️ VERIFIED LIVE: `bufferM` is NOT a hard cutoff, same as `retrieveTheme`'s
+ * `extents`. A `buffer=50` request returned buildings up to 262 m away — MRT
+ * stations were the worst offenders (233-262 m), ordinary HDB blocks a more
+ * modest 54-90 m, but never strictly ≤ 50. Reproduced at 3 different points
+ * along a real route, not a one-off. Filtered client-side below; never trust
+ * this parameter as an actual radius cap.
  */
 async function reverseGeocodeUncached(at: LatLng, bufferM: number): Promise<Building[]> {
   const body = await oneMapFetch<OneMapRevGeocodeResponse>('/api/public/revgeocode', {
@@ -258,13 +265,15 @@ async function reverseGeocodeUncached(at: LatLng, bufferM: number): Promise<Buil
     otherFeatures: 'N',
   });
 
-  return (body.GeocodeInfo ?? []).map((g) => ({
-    buildingName: nilToNull(g.BUILDINGNAME),
-    block: nilToNull(g.BLOCK),
-    road: nilToNull(g.ROAD),
-    postal: nilToNull(g.POSTALCODE),
-    at: { lat: Number(g.LATITUDE), lng: Number(g.LONGITUDE) },
-  }));
+  return (body.GeocodeInfo ?? [])
+    .map((g) => ({
+      buildingName: nilToNull(g.BUILDINGNAME),
+      block: nilToNull(g.BLOCK),
+      road: nilToNull(g.ROAD),
+      postal: nilToNull(g.POSTALCODE),
+      at: { lat: Number(g.LATITUDE), lng: Number(g.LONGITUDE) },
+    }))
+    .filter((b) => haversineM(at, b.at) <= bufferM);
 }
 
 /** LRU-cached — keyed on coords rounded to 5 dp + bufferM, 500 entries before eviction. */

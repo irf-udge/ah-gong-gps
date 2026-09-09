@@ -75,7 +75,7 @@ These are cheap to do now and expensive to discover late. Do them in parallel.
 
 ---
 
-## 👤 Irfan — Pipeline spine + comfort routing + Voice I/O (80%)
+## 👤 Irfan — Pipeline spine + comfort routing + Voice I/O (85%)
 
 Owns `src/core/**`, `src/providers/**`, `src/audio/**`, `src/phrases/**`,
 `server/**`, `data/**`, `fixtures/**`. (Originally two roles — A: pipeline
@@ -206,7 +206,39 @@ split by role anymore, just grouped by checkpoint.)
 - [x] ~~`providers/onemap.ts` — browser-side clients hitting our proxy.~~
       **DONE, LIVE-VERIFIED in a real browser** through the full chain:
       `OneMapPlaces`/`OneMapRouting` → Vite dev proxy → Express → real OneMap.
-- [ ] `core/landmarks.ts` — `collectLandmarks`, `rankForManoeuvre`, `localisedName`
+- [x] ~~`core/landmarks.ts` — `collectLandmarks`, `rankForManoeuvre`,
+      `localisedName`.~~ **DONE, LIVE-VERIFIED** against the real route +
+      real OneMap theme data (33 assertions, real network calls, not mocks).
+      Found and fixed a real bug along the way: `reverseGeocode`'s `bufferM`
+      isn't a hard cutoff either — same class of issue as `retrieveTheme`'s
+      `extents` (see CONTRACTS.md § 2.2). A `buffer=50` request returned
+      buildings up to 262 m away; fixed at the source in `server/onemap.ts`.
+      That fix then EXPOSED a second real gap on the actual demo route: with
+      the buffer correctly enforced, 2 of the 5 real manoeuvres had zero
+      landmark candidates within `LANDMARK_RADIUS_M` (50 m) — a turn can sit
+      at a junction with nothing named nearby. Added `FALLBACK_RADIUS_M`
+      (150 m), tried only when the tight radius comes up empty; both gaps
+      recovered with real nearby buildings (e.g. "SHELL ANG MO KIO AVENUE 6").
+      Design calls made along the way, all documented inline:
+      · Buildings/amenities with no usable name are **dropped, not degraded**
+        to a generic label — a bare road name would be exactly the
+        street-name-based direction this product exists to avoid, and an
+        unnamed OSM amenity doesn't fit `Landmark.name`'s "verbatim, never
+        translated" contract. They stay fully available to `core/comfort.ts`
+        for scoring; they just never become a spoken landmark.
+      · `rankForManoeuvre` sorts by recognisability tier FIRST (named building
+        > named OneMap theme landmark > numbered block > bus stop > anonymous
+        OSM amenity), distance only breaks ties within a tier — verified this
+        is what "a named building beats an unnamed block" in the original
+        stub comment actually requires, not distance-first sorting.
+      · Landmark ids are scoped per-manoeuvre (`m{index}:...`) since the same
+        physical building can legitimately anchor two different manoeuvres
+        with two different distanceM/bearingDeg pairs, and `Journey.landmarks`
+        is one flat array every `Step.landmarkId` must resolve unambiguously
+        against.
+      · Removed a duplicate `landmarkDisplayName` from `server/llm.ts` (its
+        own comment said "not built yet, don't call into it" — now it is) and
+        pointed it at the real `localisedName` instead.
 - [x] ~~Run `listAllThemes()` and pick useful layers.~~ **DONE** — see
       `USEFUL_THEMES` in `server/onemap.ts`. Landmarks only; no comfort layers exist.
 - [ ] `data/etl.ts` — query Overpass (4 layers), classify, clip to corridor, bake `data/amenities.json`

@@ -41,6 +41,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import type { Action, Lang, Landmark, Manoeuvre, Place, Step } from '../src/core/types';
+import { localisedName } from '../src/core/landmarks';
 
 export const EXTRACTION_MODEL = 'gemini-3.5-flash-lite';
 export const REWRITE_MODEL = 'gemini-3.5-flash-lite';
@@ -62,19 +63,6 @@ const LANG_NAMES: Record<Lang, string> = {
   en: 'English',
   ta: 'Tamil',
 };
-
-/**
- * Prefer the curated nameZh/nameMs when present, else the verbatim English
- * name. This is deliberately simple, local to prompt-building — the fuller
- * version of this logic (with more sourcing rules) is core/landmarks.ts's
- * localisedName, which is a separate NOT_IMPLEMENTED stub; don't call into
- * it from here, it isn't built yet.
- */
-function landmarkDisplayName(l: Landmark, lang: Lang): string {
-  if (lang === 'zh' && l.nameZh) return l.nameZh;
-  if (lang === 'ms' && l.nameMs) return l.nameMs;
-  return l.name;
-}
 
 // ─── Destination extraction ──────────────────────────────────────────────────
 
@@ -245,7 +233,7 @@ export async function rewriteToSteps(
   const landmarkLines = landmarks
     .map(
       (l) =>
-        `- id="${l.id}" name="${landmarkDisplayName(l, lang)}" kind=${l.kind} ~${Math.round(l.distanceM)}m away, bearing ${Math.round(l.bearingDeg)}°`,
+        `- id="${l.id}" name="${localisedName(l, lang)}" kind=${l.kind} ~${Math.round(l.distanceM)}m away, bearing ${Math.round(l.bearingDeg)}°`,
     )
     .join('\n');
   const manoeuvreLines = manoeuvres
