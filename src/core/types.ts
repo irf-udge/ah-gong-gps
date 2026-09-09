@@ -214,6 +214,8 @@ export interface JourneyState {
   currentStepIndex: number;
   transcript: string | null;
   clarifyQuestion: string | null;
+  /** Empty when the question has no tappable options (e.g. "didn't catch that") — see ui/screens/ClarifyScreen.tsx. */
+  clarifyCandidates: Place[];
   error: string | null;
 }
 

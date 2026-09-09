@@ -14,6 +14,8 @@ export interface PhraseBook {
   // Conversation
   tapToSpeak: string;
   listening: string;
+  /** Shown once recording stops and we're waiting on transcription — a distinct state from `listening`, so silence never reads as broken. */
+  thinking: string;
   sayAgain: string;
   notUnderstood: string;
   /** {place} */
@@ -33,6 +35,8 @@ export interface PhraseBook {
   /** {landmark} */
   youAreNear: string;
   recalculating: string;
+  /** ArrivedScreen's "start a new journey" button. */
+  goHome: string;
 
   // Comfort rationale (assembled by core/comfort.describeScore)
   mostlySheltered: string;

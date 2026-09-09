@@ -118,28 +118,78 @@ export class SimulatedProvider implements LocationProvider {
 export class GeolocationProvider implements LocationProvider {
   readonly name = 'gps';
 
-  start(_onPosition: (p: Position) => void): void {
-    throw new Error('NOT_IMPLEMENTED: GeolocationProvider.start');
+  private watchId: number | null = null;
+
+  start(onPosition: (p: Position) => void, onError?: (err: Error) => void): void {
+    if (!('geolocation' in navigator)) {
+      throw new Error(
+        'GeolocationProvider: navigator.geolocation is unavailable — needs a secure (HTTPS) context, see README § Testing on a phone',
+      );
+    }
+    this.stop(); // idempotent restart — never stack two watches
+
+    this.watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        onPosition({
+          at: { lat: pos.coords.latitude, lng: pos.coords.longitude },
+          accuracyM: pos.coords.accuracy,
+          timestamp: pos.timestamp,
+        });
+      },
+      (err) => {
+        // GeolocationPositionError isn't a real Error -- wrap it so onError's
+        // contract (an actual Error) holds regardless of caller.
+        onError?.(new Error(`GeolocationProvider: ${err.message || 'position unavailable'} (code ${err.code})`));
+      },
+      { enableHighAccuracy: true, maximumAge: 0 },
+    );
   }
 
   stop(): void {
-    throw new Error('NOT_IMPLEMENTED: GeolocationProvider.stop');
+    if (this.watchId !== null) {
+      navigator.geolocation.clearWatch(this.watchId);
+      this.watchId = null;
+    }
   }
 }
 
-/** Next/prev buttons. The last-resort stage fallback if everything else fails. */
+/**
+ * Next/prev buttons. The last-resort stage fallback if everything else fails.
+ * `start()` reports the first point of `path` immediately — `advance()` is
+ * what actually moves it forward, driven by a UI button tap, not a timer or
+ * a real position source. Takes `path` via constructor, same as
+ * `SimulatedProvider` — both need the route up front, from
+ * `createLocationProvider()` in providers/index.ts.
+ */
 export class ManualProvider implements LocationProvider {
   readonly name = 'manual';
 
-  start(_onPosition: (p: Position) => void): void {
-    throw new Error('NOT_IMPLEMENTED: ManualProvider.start');
+  private index = 0;
+  private onPosition: ((p: Position) => void) | null = null;
+
+  constructor(private readonly path: readonly LatLng[] = []) {}
+
+  start(onPosition: (p: Position) => void): void {
+    this.onPosition = onPosition;
+    this.index = 0;
+    this.emit();
   }
 
   stop(): void {
-    throw new Error('NOT_IMPLEMENTED: ManualProvider.stop');
+    this.onPosition = null;
   }
 
+  private emit(): void {
+    if (!this.onPosition) return;
+    const at = this.path[this.index];
+    if (!at) return; // empty path -- nothing to report
+    this.onPosition({ at, accuracyM: 0, timestamp: Date.now() });
+  }
+
+  /** Steps to the next point in the path, clamped at the end — never throws on repeated taps past the last step. */
   advance(): void {
-    throw new Error('NOT_IMPLEMENTED: ManualProvider.advance');
+    if (this.path.length === 0) return;
+    this.index = Math.min(this.index + 1, this.path.length - 1);
+    this.emit();
   }
 }

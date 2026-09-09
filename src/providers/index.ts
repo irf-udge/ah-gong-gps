@@ -62,6 +62,9 @@ export function createProviders(opts: ProviderOptions): Providers {
  * providers/types.ts). `path` is required for `'simulated'` — that's the
  * primary demo path (judges are indoors), not a fallback, so a missing path
  * there is a real bug in the caller, not a case to silently paper over.
+ * `'manual'` also uses `path` (steps through it button-tap by button-tap) but
+ * tolerates a missing one — it's the last-resort fallback, so refusing to
+ * even construct without a route would defeat the point. `'gps'` ignores it.
  *
  * `speedMps` is `'simulated'`-only (ignored otherwise — GPS/Manual have no
  * playback speed concept) and defaults to `SIM_SPEED_MPS` (1 m/s, realistic
@@ -87,6 +90,6 @@ export function createLocationProvider(
     case 'gps':
       return new GeolocationProvider();
     case 'manual':
-      return new ManualProvider();
+      return new ManualProvider(path ?? []);
   }
 }

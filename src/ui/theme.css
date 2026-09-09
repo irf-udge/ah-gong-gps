@@ -97,8 +97,23 @@ body {
   cursor: pointer;
 }
 
+/*
+ * ⚠️ NOT `composes: btn-primary` (that was here before — CSS Modules syntax,
+ * a no-op in a plain global stylesheet like this one, verified live: the
+ * button rendered at browser-default size/border/font, none of
+ * btn-primary's actual styling, just the two properties declared directly
+ * below). Duplicated instead — plain CSS has no extension mechanism without
+ * a preprocessor, and this file isn't run through one.
+ */
 .btn-danger {
-  composes: btn-primary;
+  min-height: var(--tap-min);
+  padding: 20px 28px;
+  font-size: var(--fs-xl);
+  font-family: inherit;
+  font-weight: 700;
+  border: 3px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
   background: var(--danger);
   color: var(--danger-fg);
 }
@@ -114,4 +129,34 @@ body {
   font-size: var(--fs-sm);
   color: var(--fg-muted);
   font-family: ui-monospace, monospace;
+}
+
+/* "Still working" indicator — ListeningScreen/ClarifyScreen. Motion, not just
+   text, so a 70+ user glances at the screen and immediately sees it's alive,
+   not frozen. Respects reduced-motion (a plain visible dot is enough there). */
+.pulse-dot {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot {
+    animation: none;
+    opacity: 1;
+  }
 }

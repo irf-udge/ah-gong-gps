@@ -546,9 +546,12 @@ Owns `src/ui/**`, `src/journey/**`, `src/main.tsx`.
       Button fills the whole screen (`flex: 1` inside `.screen`), uses the
       REAL localised `tapToSpeak` phrase from `src/phrases` (not invented
       text) — confirmed rendering correctly for both `zh` and `ms`.
-- [ ] `JourneyScreen` — **ONE step, never a list**. Still a stub — App.tsx
-      passes it correct real props (`step`, `stepCount`, `onImLost`,
-      `onRepeat`) but the component itself just renders placeholder text.
+- [x] ~~`JourneyScreen` — **ONE step, never a list**~~ **DONE, LIVE-VERIFIED**
+      (Lija, via the `journey` branch — merged 2026-09-09, clean, no real
+      conflicts despite a stale-diff false alarm; see below). Progress dots
+      row (`N / stepCount`), current step in `.step-text`, always-visible
+      "I'm lost" button. This checklist line was stale — the merge landed
+      the real component, not just the props App.tsx was already passing.
 - [x] ~~Wire Lija's UI → Irfan's TTS and fixture data. **This is CP1.**~~
       **DONE, LIVE-VERIFIED — the full demo lifecycle plays end to end.**
       Tap -> `primeForUserGesture()` (synchronous, before any await, per
@@ -576,17 +579,112 @@ Owns `src/ui/**`, `src/journey/**`, `src/main.tsx`.
          `GEOFENCE_RADIUS_M`/`TICK_MS` earlier this session).
 
 ### CP2/CP3
-- [ ] `ListeningScreen` — visible "still working" state; silence reads as broken
-- [ ] `ClarifyScreen` — speak the question aloud, then wait. It's a feature.
-- [ ] `ArrivedScreen`
-- [ ] `GeolocationProvider` + `ManualProvider`
-- [ ] `JudgeView` (`?judge=1`) — chosen vs rejected routes, score breakdowns,
-      **live comfort weight sliders**, the landmark set, any validation violations
+- [x] ~~`ListeningScreen` — visible "still working" state; silence reads as
+      broken~~ **DONE, LIVE-VERIFIED** (Irfan, on Lija's behalf — see
+      2026-09-09 note below on why). Pulse-dot + `@keyframes pulse`
+      (`ui/theme.css`, respects `prefers-reduced-motion`), text switches
+      between `book.listening`/`book.thinking` on the `thinking` prop
+      (`state.phase === 'resolving'`), `sayAgain` always visible.
+- [x] ~~`ClarifyScreen` — speak the question aloud, then wait. It's a
+      feature.~~ **DONE, LIVE-VERIFIED** end to end through the REAL (non-demo)
+      pipeline — real recording, real `/api/understand` shape (mocked
+      response, real request/response wiring), a real `/api/journey` call
+      after tapping a candidate. Speaking + waiting lives in `ui/App.tsx` (a
+      `useEffect` on the `clarifying` phase), not the component itself.
+      Candidate buttons render as `btn-primary`; `sayAgain` renders
+      `btn-danger` when candidates exist (a visual "none of these" signal),
+      `btn-primary` otherwise.
+- [x] ~~`ArrivedScreen`~~ **DONE, LIVE-VERIFIED.** `book.arrived` (colored
+      `--ok`), destination name, `goHome` → dispatches `RESET`.
+- [x] ~~`GeolocationProvider` + `ManualProvider`~~ **DONE.**
+      `GeolocationProvider` wraps `navigator.geolocation.watchPosition`,
+      surfaces failures through `LocationProvider.start()`'s new optional
+      `onError` param (see § 3 in CONTRACTS.md) instead of swallowing them.
+      `ManualProvider` takes `path` via constructor (same shape as
+      `SimulatedProvider`, not a separate setter) — `start()` emits
+      `path[0]`, `advance()` steps forward clamped at the end, never throws
+      on repeated taps past it.
+- [x] ~~`JudgeView` (`?judge=1`) — chosen vs rejected routes, score
+      breakdowns, **live comfort weight sliders**, the landmark set, any
+      validation violations~~ **DONE, LIVE-VERIFIED** — dragging the "Rest
+      points" slider live re-ranked the table (🏆 moved from `cand-direct` to
+      `cand-sheltered` mid-interaction, `-1.60`/`-1.66` → `-1.14`/`-0.73`),
+      confirming this actually calls `scoreRoute`/`rankRoutes` on every
+      change and isn't a static snapshot. `JudgeViewProps` gained
+      `amenities: Poi[]` and `directDistanceM: number` (not in the original
+      stub — `scoreRoute()` needs both and nothing else supplied them) plus
+      optional `violations?: Violation[]`.
+
+  **2026-09-09 — merged Lija's `journey` branch, then implemented all of the
+  above on her behalf.** Fetch showed a diff that first looked like ~1185
+  lines of deletions across Irfan-owned files; `git merge-base` + `git show`
+  on her actual commit showed that was just `journey` being 5 commits behind
+  `main`, not real conflicting changes — her one commit only touched
+  `JourneyScreen.tsx` (+33/-2). Merged clean, verified live, pushed. With
+  Lija now actively committing (unlike earlier in the project), building the
+  rest of her scope risked real conflicts — confirmed with the user before
+  proceeding anyway.
+
+  Real bugs found and fixed along the way, beyond the screens/providers
+  themselves:
+  1. **`.btn-danger` was silently broken since JourneyScreen's first build.**
+     `ui/theme.css` used `composes: btn-primary`, which is CSS-Modules-only
+     syntax — meaningless in this plain global stylesheet. Verified live via
+     `getComputedStyle`: `minHeight`/`padding`/`fontSize`/`fontWeight`/
+     `border`/`borderRadius` were all silently falling back to browser
+     defaults (only the directly-declared `background`/`color` worked) —
+     under the 64px tap-target minimum the whole product is built around.
+     Fixed by duplicating `.btn-primary`'s properties directly.
+  2. **`App.tsx`'s real (non-demo) pipeline wasn't wired to anything.**
+     `runDemoFlow` was the only flow that ever ran, regardless of
+     `opts.demoMode` — the default (`demoMode: false`, no query params) was
+     supposed to run the real MERaLiON/OneMap/Gemini pipeline (Failure plan
+     layers 1-2 in this doc), but nothing ever called
+     `audio/capture.ts:createRecorder()` or `/api/understand`/`/api/journey`
+     from the UI at all. Added `runRealFlow` (record 5s → `/api/understand`
+     directly, not through `providers.stt` — see `stt.ts`'s own header on
+     why → `/api/journey` or `CLARIFY`), branched on `opts.demoMode` in
+     `handleSpeak`.
+  3. **`journey/machine.ts`'s `reduce()` had no path from `clarifying` to
+     `ready`.** The state diagram only drew clarifying's exit as the
+     say-again loop back to `listening` — there was never a `RESOLVED`
+     handler under `case 'clarifying'`, even though `clarify.candidates`
+     existing at all is specifically for tappable resolution. Found live:
+     tapping a real candidate called `/api/journey` correctly but the
+     dispatch was a silent no-op, screen just sat there. Added `RESOLVED`
+     handling to the `clarifying` case (see CONTRACTS.md § 5).
+  4. **"I'm lost" during a demo run silently broke `DEMO_MODE`'s zero-network
+     contract.** The naive wiring called the real `/api/reanchor` regardless
+     of `opts.demoMode` — a real OneMap/Gemini round trip mid-demo, exactly
+     what Failure plan layer 3 promises never happens. Demo mode now speaks
+     a canned `book.recalculating` and reanchors with no network at all.
+  5. **Reanchoring (either path) never restarted location tracking.** The
+     universal "stop the walk when phase isn't navigating" effect tears down
+     `locationRef` the moment `IM_LOST` fires; dispatching `REANCHORED` back
+     to `navigating` doesn't undo that on its own. Without an explicit
+     `startSimulatedWalk()` call after both the demo-mode and the
+     no-new-journey real-mode reanchor, the walk froze permanently at
+     whatever step it was on — reproduced live (stalled at step 2/4 for 10s+
+     with zero further advancement). Fixed by restarting the provider with
+     whichever journey ends up current. `SimulatedProvider.start()` always
+     resets to path position 0 (no resume-from-progress support), so this
+     replays the already-walked portion of a simulated route instead of
+     resuming from where it was — cosmetic only (`currentStepIndex` doesn't
+     move until the walker catches back up past it), and GPS/manual modes
+     have no such replay at all.
 
 ### CP4
-- [ ] "I'm lost" flow end to end
-- [ ] Sunlight legibility pass on the real device
-- [ ] Verify no senior-facing screen renders a map or a step list
+- [x] ~~"I'm lost" flow end to end~~ **DONE, LIVE-VERIFIED** (both demo-mode
+      and, via mocked-but-real-shaped `/api/reanchor`, the real path) — see
+      the 2026-09-09 note above (fixes 4 and 5 were both found testing this
+      specifically).
+- [ ] Sunlight legibility pass on the real device — needs a physical phone
+      outdoors, out of reach here.
+- [x] Verified by inspection: no senior-facing screen (`HomeScreen`,
+      `ListeningScreen`, `ClarifyScreen`, `JourneyScreen`, `ArrivedScreen`)
+      renders a map or a list of steps. `JudgeView` is the only screen with
+      either, and it's judge-only (`?judge=1`, never reached by the
+      senior-facing state machine).
 
 ---
 
@@ -606,9 +704,18 @@ visible break.
 
 ## Definition of done
 
-- [ ] `npm run typecheck` clean
+- [x] `npm run typecheck` clean (verified 2026-09-09, whole project)
 - [ ] `npm test` green — comfort scoring, validation rejecting known-bad output,
       geofence hysteresis, polyline decode, 16 kHz audio assertion
+      ⚠️ **No test files exist in the repo as of 2026-09-09** (`find . -iname
+      "*.test.ts"` — zero results; `npm test` runs `vitest run` against
+      nothing). Multiple checklist entries elsewhere in this doc describe
+      specific assertion counts for `journey/machine.ts`/`SimulatedProvider`
+      ("36 assertions", "13 assertions") as already done — those runs may
+      have genuinely happened at some point, but nothing durable was
+      committed. Flagging rather than silently writing a test suite under
+      this session's scope (implementing Lija's remaining screens/providers)
+      — worth a real pass before this checkbox is honest.
 - [ ] `DEMO_MODE=1` completes button → arrival with no network
 - [ ] Live run on the demo corridor; every `landmark_id` resolves to a real record
 - [ ] Rewrite run 20× on the demo route, **zero** validation failures

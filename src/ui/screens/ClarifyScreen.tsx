@@ -8,6 +8,7 @@
 // it has to come back instantly.
 
 import type { Lang, Place } from '../../core/types';
+import { ms, zh } from '../../phrases';
 
 export interface ClarifyScreenProps {
   lang: Lang;
@@ -17,6 +18,36 @@ export interface ClarifyScreenProps {
   onSayAgain: () => void;
 }
 
-export function ClarifyScreen(_props: ClarifyScreenProps) {
-  return <div className="screen">TODO: ClarifyScreen</div>;
+/**
+ * `question` is SPOKEN aloud (not just shown) — that happens in ui/App.tsx
+ * (a useEffect reacting to the `clarifying` phase, same pattern as every
+ * other TTS call in this app), not here. This component only renders it.
+ */
+export function ClarifyScreen({ lang, question, candidates, onPick, onSayAgain }: ClarifyScreenProps) {
+  const book = lang === 'ms' ? ms : zh;
+  const hasCandidates = candidates.length > 0;
+
+  return (
+    <main className="screen" style={{ justifyContent: 'space-between' }}>
+      <section aria-live="polite" style={{ display: 'flex', alignItems: 'center', flex: hasCandidates ? undefined : 1 }}>
+        <p className="step-text" style={{ margin: 0 }}>
+          {question}
+        </p>
+      </section>
+
+      {hasCandidates && (
+        <nav aria-label={lang === 'ms' ? 'Pilihan' : '选项'} style={{ display: 'grid', gap: 'var(--gap)' }}>
+          {candidates.map((place) => (
+            <button key={place.id} type="button" className="btn-primary" onClick={() => onPick(place)}>
+              {place.name}
+            </button>
+          ))}
+        </nav>
+      )}
+
+      <button type="button" className={hasCandidates ? 'btn-danger' : 'btn-primary'} style={{ width: '100%' }} onClick={onSayAgain}>
+        {book.sayAgain}
+      </button>
+    </main>
+  );
 }

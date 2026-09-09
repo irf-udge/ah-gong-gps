@@ -12,6 +12,7 @@ export const ms: PhraseBook = {
   // Conversation
   tapToSpeak: 'Tekan sini, beritahu saya anda mahu ke mana',
   listening: 'Sila cakap',
+  thinking: 'Sila tunggu sebentar',
   sayAgain: 'Sila cakap sekali lagi',
   notUnderstood: 'Saya tidak dengar dengan jelas, sila cakap sekali lagi',
   confirmDestination: 'Anda mahu pergi ke {place}?',
@@ -26,6 +27,7 @@ export const ms: PhraseBook = {
   arrived: 'Anda sudah sampai',
   youAreNear: 'Anda berada berhampiran {landmark}',
   recalculating: 'Saya cari jalan semula',
+  goHome: 'Kembali ke skrin utama',
 
   // Comfort rationale
   mostlySheltered: 'Laluan ini kebanyakannya berbumbung',

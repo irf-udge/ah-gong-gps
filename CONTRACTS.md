@@ -437,8 +437,15 @@ interface RoutingProvider { name: string; walkRoute(from: LatLng, to: LatLng): P
 interface PlaceProvider   { name: string; search(q): Promise<Place[]>
                             reverseGeocode(at: LatLng, bufferM: number): Promise<Building[]>
                             theme(queryName: string, bbox: BBox): Promise<Poi[]> }
-interface LocationProvider{ name: string; start(cb: (p: Position) => void): void; stop(): void }
+interface LocationProvider{ name: string; start(cb: (p: Position) => void, onError?: (err: Error) => void): void; stop(): void }
 ```
+
+> ⚠️ `LocationProvider.start()`'s `onError` param isn't in the original
+> design — added implementing `GeolocationProvider`, which needs a way to
+> surface a real `GeolocationPositionError` (permission denied, position
+> unavailable, timeout) to the caller instead of either swallowing it or
+> throwing async where nothing could catch it. Optional and unused by
+> `SimulatedProvider`/`ManualProvider`, which can't fail this way.
 
 > ⚠️ `SttProvider.transcribe()`'s `at: LatLng` param isn't in the original
 > design — added wiring up `MeraLionStt`, which calls `POST /api/understand`
@@ -605,7 +612,16 @@ Full definitions in `src/core/types.ts`. The ones that matter most:
   shared type when a real, live-verified need shows up, don't work around it.
 - **`Step`** — what the senior hears. `landmarkId` **must** exist in the
   journey's `landmarks`.
-- **`JourneyState`** — phase, journey, current step index.
+- **`JourneyState`** — phase, journey, current step index. `clarifyCandidates:
+  Place[]` added 2026-09-09 wiring up `ClarifyScreen` for real — `clarifyQuestion`
+  alone had nowhere to hold `UnderstandResponse.clarify.candidates` for the
+  screen's tappable options. Empty when the question has no candidates (e.g.
+  "didn't catch that"). `journey/machine.ts`'s `reduce()` also gained a
+  `RESOLVED` handler under `clarifying` (previously only `resolving` had one)
+  — the state diagram had never drawn a path for "the user tapped a
+  candidate," even though that's the entire reason `clarify.candidates`
+  exists; without it, `ClarifyScreen.onPick` calling `/api/journey` and
+  dispatching `RESOLVED` was a silent no-op.
 - **`PlanJourneyRequest`/`ReanchorRequest`** — changed 2026-09-10, wiring up
   `server/index.ts`'s route handlers. Both used to carry a bare id
   (`destinationId`/`journeyId: string`) for the server to "look up" — but

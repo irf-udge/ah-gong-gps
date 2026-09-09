@@ -85,10 +85,19 @@ export interface PlaceProvider {
 /**
  * Implemented by: SimulatedProvider (BUILD THIS FIRST — it is the demo path),
  * GeolocationProvider, ManualProvider.
+ *
+ * ⚠️ `onError` isn't in the original stub signature — added building
+ * `GeolocationProvider`. Real GPS fails in ordinary, expected ways
+ * (permission denied, no signal, timeout), and with no error channel those
+ * failures had nowhere to go but a swallowed `console.error` — no way for
+ * the orchestration layer to react (e.g. fall back to `ManualProvider`),
+ * which directly contradicts "assume things fail, offer a way forward"
+ * (CONTRACTS.md § UI rules). Optional: `SimulatedProvider`/`ManualProvider`
+ * never error, so they simply never call it.
  */
 export interface LocationProvider {
   readonly name: string;
-  start(onPosition: (p: Position) => void): void;
+  start(onPosition: (p: Position) => void, onError?: (err: Error) => void): void;
   stop(): void;
 }
 

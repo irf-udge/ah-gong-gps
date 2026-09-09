@@ -13,6 +13,7 @@ export const zh: PhraseBook = {
   // Conversation
   tapToSpeak: '按一下，告诉我你要去哪里',
   listening: '请说',
+  thinking: '请稍等',
   sayAgain: '请再说一次',
   notUnderstood: '我听不清楚，请再说一次',
   confirmDestination: '您是要去{place}吗？',
@@ -27,6 +28,7 @@ export const zh: PhraseBook = {
   arrived: '您到了',
   youAreNear: '您现在在{landmark}附近',
   recalculating: '我帮您重新找路',
+  goHome: '回到首页',
 
   // Comfort rationale
   mostlySheltered: '这条路大部分有盖',

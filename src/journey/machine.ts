@@ -2,9 +2,9 @@
 //
 // The journey state machine.
 //
-//   idle ─tap─▶ listening ─audio─▶ resolving ─┬─ok────▶ planning ─▶ ready
-//                   ▲                          └─ambiguous─▶ clarifying ─┐
-//                   └──────────────────────────────────────────────────┘
+//   idle ─tap─▶ listening ─audio─▶ resolving ─┬─ok─────────────▶ planning ─▶ ready
+//                   ▲                          └─ambiguous─▶ clarifying ─┤    ▲
+//                   └───────────────────────────────────────────┘       └────┘
 //   ready ─start─▶ navigating ─geofence×N─▶ arrived
 //   navigating ─"I'm lost"─▶ lost ─reanchor─▶ navigating
 //
@@ -12,7 +12,7 @@
 // Any state can fall back to `listening` via "say it again"; assume
 // mis-transcription everywhere.
 
-import type { Journey, JourneyState, Lang, Position, Step } from '../core/types';
+import type { Journey, JourneyState, Lang, Place, Position, Step } from '../core/types';
 import { nearestOnPolyline } from '../core/geo';
 import { GEOFENCE_HYSTERESIS_M, GEOFENCE_RADIUS_M } from './location';
 
@@ -20,7 +20,7 @@ export type JourneyEvent =
   | { type: 'TAP_SPEAK' }
   | { type: 'TRANSCRIPT'; text: string }
   | { type: 'RESOLVED'; journey: Journey }
-  | { type: 'CLARIFY'; question: string }
+  | { type: 'CLARIFY'; question: string; candidates: Place[] }
   | { type: 'SAY_AGAIN' }
   | { type: 'START_JOURNEY' }
   | { type: 'POSITION'; position: Position }
@@ -37,6 +37,7 @@ export const initialState: JourneyState = {
   currentStepIndex: 0,
   transcript: null,
   clarifyQuestion: null,
+  clarifyCandidates: [],
   error: null,
 };
 
@@ -65,7 +66,7 @@ export const initialState: JourneyState = {
  */
 export function reduce(state: JourneyState, event: JourneyEvent): JourneyState {
   if (event.type === 'SAY_AGAIN') {
-    return { ...state, phase: 'listening', transcript: null, clarifyQuestion: null, error: null };
+    return { ...state, phase: 'listening', transcript: null, clarifyQuestion: null, clarifyCandidates: [], error: null };
   }
   if (event.type === 'ERROR') {
     return { ...state, phase: 'error', error: event.message };
@@ -77,7 +78,7 @@ export function reduce(state: JourneyState, event: JourneyEvent): JourneyState {
   switch (state.phase) {
     case 'idle':
       if (event.type === 'TAP_SPEAK') {
-        return { ...state, phase: 'listening', transcript: null, clarifyQuestion: null, error: null };
+        return { ...state, phase: 'listening', transcript: null, clarifyQuestion: null, clarifyCandidates: [], error: null };
       }
       return state;
 
@@ -89,10 +90,17 @@ export function reduce(state: JourneyState, event: JourneyEvent): JourneyState {
 
     case 'resolving':
       if (event.type === 'RESOLVED') {
-        return { ...state, phase: 'ready', journey: event.journey, clarifyQuestion: null, currentStepIndex: 0 };
+        return {
+          ...state,
+          phase: 'ready',
+          journey: event.journey,
+          clarifyQuestion: null,
+          clarifyCandidates: [],
+          currentStepIndex: 0,
+        };
       }
       if (event.type === 'CLARIFY') {
-        return { ...state, phase: 'clarifying', clarifyQuestion: event.question };
+        return { ...state, phase: 'clarifying', clarifyQuestion: event.question, clarifyCandidates: event.candidates };
       }
       return state;
 
@@ -104,6 +112,28 @@ export function reduce(state: JourneyState, event: JourneyEvent): JourneyState {
       // iOS-gesture-priming first tap specifically (see
       // ui/screens/HomeScreen.tsx's header) — a re-listen after a spoken
       // question shouldn't need a fresh user gesture.
+      //
+      // ⚠️ RESOLVED here too — a genuine gap found wiring up ClarifyScreen's
+      // candidate buttons: the original diagram only drew clarifying's exit
+      // as the say-again loop back to `listening`, with no path for "the
+      // user just tapped one of the candidates," even though `clarify`
+      // carrying tappable `candidates` (see /api/understand's response
+      // shape) is the documented point of this screen existing at all
+      // (ClarifyScreen's own header: "The clarification loop is a
+      // FEATURE"). Without this, ui/App.tsx's handleClarifyPick calling
+      // /api/journey and dispatching RESOLVED was a silent no-op — the
+      // screen just sat there after a real network round trip. Same
+      // ready-phase shape as the `resolving` case above.
+      if (event.type === 'RESOLVED') {
+        return {
+          ...state,
+          phase: 'ready',
+          journey: event.journey,
+          clarifyQuestion: null,
+          clarifyCandidates: [],
+          currentStepIndex: 0,
+        };
+      }
       return state;
 
     case 'ready':
