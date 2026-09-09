@@ -4,9 +4,16 @@
 // in ./types, never on a concrete class — so swapping a backend is a change
 // here and nowhere else.
 
-import type { Providers } from './types';
+import { FixturePlaces, FixtureRouting, FixtureStt } from './fixtures';
+import { OneMapPlaces, OneMapRouting } from './onemap';
+import { createStt } from './stt';
+import { BrowserTts } from './tts';
+import { GeolocationProvider, ManualProvider, SimulatedProvider } from '../journey/location';
+import type { LatLng } from '../core/types';
+import type { LocationProvider, Providers } from './types';
 
 export * from './types';
+export { buildDemoJourney, buildDemoRejected, buildDemoScoredRoute, DEMO_FIXTURE } from './fixtures';
 
 export interface ProviderOptions {
   /** DEMO_MODE=1 → every provider becomes its Fixture* counterpart. */
@@ -24,14 +31,47 @@ export function readProviderOptions(): ProviderOptions {
 }
 
 /**
- * Build the provider set.
+ * Build the provider set — everything EXCEPT location (see providers/types.ts
+ * for why: SimulatedProvider needs a route polyline that doesn't exist yet at
+ * app-start time). Call this once, e.g. on first mic tap.
  *
- * Real path:   MeraLionStt → BrowserTts → OneMapRouting → OneMapPlaces → Simulated/Geolocation
- * Demo path:   FixtureStt  → BrowserTts → FixtureRouting → FixturePlaces → SimulatedProvider
+ * Real path:   MeraLionStt/WebSpeechStt (via createStt) → BrowserTts → OneMapRouting → OneMapPlaces
+ * Demo path:   FixtureStt                               → BrowserTts → FixtureRouting → FixturePlaces
  *
- * Note TTS is browser-native in BOTH paths — MERaLiON has no TTS endpoint and
- * speechSynthesis needs no network, so there is nothing to fixture.
+ * TTS is BrowserTts in BOTH paths on purpose — MERaLiON has no TTS endpoint
+ * and speechSynthesis needs no network, so there is nothing to fixture. (B's
+ * FixtureTts exists too, but for headless tests, not for DEMO_MODE — going
+ * silent is the one thing the on-stage kill switch must never do.)
+ *
+ * STT selection is delegated to stt.createStt(), not reimplemented here —
+ * the MERaLiON-vs-WebSpeech race/fallback logic is B's to own; this file
+ * only decides demoMode, not how a non-demo failover behaves.
  */
-export function createProviders(_opts: ProviderOptions): Providers {
-  throw new Error('NOT_IMPLEMENTED: createProviders — wire up once B and C land their classes');
+export function createProviders(opts: ProviderOptions): Providers {
+  return {
+    stt: opts.demoMode ? new FixtureStt() : createStt({ demoMode: opts.demoMode }),
+    tts: new BrowserTts(),
+    routing: opts.demoMode ? new FixtureRouting() : new OneMapRouting(),
+    places: opts.demoMode ? new FixturePlaces() : new OneMapPlaces(),
+  };
+}
+
+/**
+ * The fifth provider, built separately once a route exists (see
+ * providers/types.ts). `path` is required for `'simulated'` — that's the
+ * primary demo path (judges are indoors), not a fallback, so a missing path
+ * there is a real bug in the caller, not a case to silently paper over.
+ */
+export function createLocationProvider(mode: ProviderOptions['location'], path?: readonly LatLng[]): LocationProvider {
+  switch (mode) {
+    case 'simulated':
+      if (!path || path.length === 0) {
+        throw new Error('createLocationProvider: "simulated" needs a non-empty route path');
+      }
+      return new SimulatedProvider(path);
+    case 'gps':
+      return new GeolocationProvider();
+    case 'manual':
+      return new ManualProvider();
+  }
 }

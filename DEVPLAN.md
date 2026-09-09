@@ -86,14 +86,31 @@ Owns `src/core/**`, `src/providers/{index,types,onemap,fixtures}.ts`,
 - [x] `fixtures/demo-route.json` — full journey, both languages
 - [ ] Push it. Tell B and C.
 
-### CP1 — server skeleton
+### CP1 — fixture-mode wiring (needs no server, no live APIs — see below)
+- [x] ~~`providers/fixtures.ts` — make `DEMO_MODE=1` fully work end to end.~~
+      **DONE, runtime-verified (not just typechecked).** `FixturePlaces`,
+      `FixtureRouting`, `FixtureStt` all implemented against the real fixture
+      JSON. Added `buildDemoJourney(lang)` / `buildDemoRejected(lang)` — a
+      complete, pre-scored `Journey` assembled straight from the fixture, zero
+      network, zero LLM calls. **C: call this instead of `POST /api/journey`
+      when `demoMode` is true** — that's the actual CP1 target. See
+      CONTRACTS.md § Provider interfaces.
+- [x] ~~`providers/index.ts` — wire `createProviders()`.~~ **DONE, runtime-
+      verified.** One real design fix along the way: `location` came out of
+      the `Providers` bundle entirely (`SimulatedProvider` needs a route
+      polyline that doesn't exist at app-start time) — it's now a separate
+      `createLocationProvider(mode, path?)` call C's `journey/machine.ts`
+      makes once a journey exists. Confirmed it correctly instantiates C's
+      `SimulatedProvider` class and throws clearly on a missing path, without
+      touching `journey/location.ts` itself.
+      ⚠️ Confirmed **TTS is `BrowserTts` in BOTH real and demo mode** — not
+      `FixtureTts` (that's for headless tests; going silent is the one thing
+      a demo kill switch must never do).
+
+### CP2 — real geography (not needed for CP1's fixture target)
 - [ ] `server/onemap.ts` — token fetch + refresh (single in-flight promise on 401)
 - [ ] `server/index.ts` — implement the four `/api/onemap/*` proxies
 - [ ] LRU cache keyed on coords rounded to 5 dp — **not optional**, OneMap 429s
-- [ ] `providers/fixtures.ts` — make `DEMO_MODE=1` fully work end to end
-- [ ] `providers/index.ts` — wire `createProviders()`
-
-### CP2 — real geography
 - [ ] `server/onemap.ts` — `search`, `reverseGeocode`, `walkRoute`, `retrieveTheme`
 - [ ] `providers/onemap.ts` — browser-side clients hitting our proxy
 - [ ] `core/landmarks.ts` — `collectLandmarks`, `rankForManoeuvre`, `localisedName`

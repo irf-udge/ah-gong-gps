@@ -303,13 +303,56 @@ interface LocationProvider{ name: string; start(cb: (p: Position) => void): void
 | Interface | Real | Fallback | Fixture |
 | --- | --- | --- | --- |
 | `SttProvider` | `MeraLionStt` | `WebSpeechStt` (6 s timeout) | `FixtureStt` |
-| `TtsProvider` | `BrowserTts` | — | `FixtureTts` |
+| `TtsProvider` | `BrowserTts` | — | `FixtureTts` (headless tests only — see below) |
 | `RoutingProvider` | `OneMapRouting` | — | `FixtureRouting` |
 | `PlaceProvider` | `OneMapPlaces` | — | `FixturePlaces` |
 | `LocationProvider` | `SimulatedProvider` | `GeolocationProvider`, `ManualProvider` | — |
 
 Note `SimulatedProvider` is the **primary** demo path, not a fallback — judges
 are indoors.
+
+> ⚠️ **`DEMO_MODE=1` does NOT swap TTS to `FixtureTts`.** `createProviders()`
+> uses `BrowserTts` in both the real and demo paths — MERaLiON has no TTS
+> endpoint and `speechSynthesis` needs no network, so there's nothing to
+> fixture, and going *silent* is the one thing an on-stage kill switch must
+> never do. `FixtureTts` (a no-op) exists for headless/CI tests, not for demos.
+
+### `Providers` — four of the five, not all five
+
+```ts
+interface Providers { stt: SttProvider; tts: TtsProvider; routing: RoutingProvider; places: PlaceProvider }
+```
+
+**`location` is deliberately not a member.** `SimulatedProvider`'s constructor
+needs the route polyline up front, and no route exists yet when the rest of
+the bundle is built (once, at app start). Get one separately, once a journey
+exists:
+
+```ts
+function createLocationProvider(mode: 'simulated'|'gps'|'manual', path?: readonly LatLng[]): LocationProvider
+```
+
+`'simulated'` throws immediately if `path` is missing/empty — a caller bug,
+not a case to paper over. `createProviders()` and `createLocationProvider()`
+are both implemented (`src/providers/index.ts`) and runtime-verified, not
+just typechecked.
+
+### Fixture-mode journey assembly
+
+For a **complete** demo journey — not just individual provider calls —
+`src/providers/fixtures.ts` exports:
+
+```ts
+buildDemoJourney(lang: Lang): Journey       // origin, destination, scored route, landmarks, steps — all from the fixture
+buildDemoRejected(lang: Lang): ScoredRoute[] // the losing candidate(s), for the judge view
+```
+
+These deliberately bypass `core/comfort.ts` and `server/llm.ts` entirely — no
+candidate generation, no LLM rewrite, zero network calls. **Call this instead
+of `POST /api/journey` when `demoMode` is true** — that's the CP1 target
+(DEVPLAN §CP1). Verified at runtime: every step's `landmarkId` resolves
+inside that same journey's `landmarks`, and the losing candidate genuinely
+scores lower than the winner (not just present for show).
 
 ---
 

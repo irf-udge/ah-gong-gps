@@ -88,10 +88,20 @@ export interface LocationProvider {
 
 // ─── The bundle ──────────────────────────────────────────────────────────────
 
+/**
+ * ⚠️ `location` is deliberately NOT a member here. SimulatedProvider's
+ * constructor requires the route polyline up front — but a route doesn't
+ * exist yet when the rest of this bundle is built (that happens once, at app
+ * start / first mic tap; a route exists only after a journey is planned).
+ * GPS/Manual don't need a path, but Simulated does, so `location` can't be
+ * eagerly built the same way as the other four.
+ *
+ * Get one via `createLocationProvider(mode, path?)` in providers/index.ts,
+ * called once a Journey (and therefore a route) exists — not at app start.
+ */
 export interface Providers {
   stt: SttProvider;
   tts: TtsProvider;
   routing: RoutingProvider;
   places: PlaceProvider;
-  location: LocationProvider;
 }
