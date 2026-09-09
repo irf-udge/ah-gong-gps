@@ -15,9 +15,9 @@
 // NOTHING IS EVER SPOKEN THAT HAS NOT PASSED validateSteps().
 
 import type { Action, Lang, Landmark, Manoeuvre, Step, ValidationResult, Violation } from './types';
-import { haversineM } from './geo';
-import { localisedName } from './landmarks';
-import { fill, ms, zh, type PhraseBook } from '../phrases';
+import { haversineM } from './geo.js';
+import { localisedName } from './landmarks.js';
+import { fill, ms, zh, type PhraseBook } from '../phrases/index.js';
 
 /**
  * Generic words that may appear in spoken text without being traceable to a

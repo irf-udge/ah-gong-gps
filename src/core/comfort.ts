@@ -17,8 +17,8 @@ import {
   haversineM,
   poisWithinRadius,
   sampleShelterCoverage,
-} from './geo';
-import { fill, ms, zh, type PhraseBook } from '../phrases';
+} from './geo.js';
+import { fill, ms, zh, type PhraseBook } from '../phrases/index.js';
 import type {
   ComfortScore,
   ComfortWeights,

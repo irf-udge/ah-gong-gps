@@ -57,5 +57,5 @@ export function fill(template: string, slots: Slots = {}): string {
   });
 }
 
-export { zh } from './zh';
-export { ms } from './ms';
+export { zh } from './zh.js';
+export { ms } from './ms.js';

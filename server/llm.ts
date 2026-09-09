@@ -41,7 +41,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import type { Action, Lang, Landmark, Manoeuvre, Place, Step, Violation } from '../src/core/types';
-import { localisedName } from '../src/core/landmarks';
+import { localisedName } from '../src/core/landmarks.js';
 
 export const EXTRACTION_MODEL = 'gemini-3.5-flash-lite';
 export const REWRITE_MODEL = 'gemini-3.5-flash-lite';

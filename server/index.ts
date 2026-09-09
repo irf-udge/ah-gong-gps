@@ -12,15 +12,24 @@ import cors from 'cors';
 import express from 'express';
 import { createHash } from 'node:crypto';
 import amenitiesData from '../data/amenities.json';
-import { search, reverseGeocode, walkRoute, retrieveTheme } from './onemap';
-import { transcribe } from './meralion';
-import { extractDestination, rewriteToSteps } from './llm';
-import { memoizeAsync } from './cache';
-import { generateCandidates, scoreRoute, rankRoutes, describeScore } from '../src/core/comfort';
-import { collectLandmarks, localisedName } from '../src/core/landmarks';
-import { validateSteps, templateSteps, lowercaseFirst } from '../src/core/validate';
-import { haversineM } from '../src/core/geo';
-import { fill, ms, zh } from '../src/phrases';
+// ⚠️ Explicit .js extensions below — added deploying to Vercel. tsx (local
+// dev) and Vite (the client bundle) both resolve extensionless/`.js`-suffixed
+// TS specifiers flexibly, but Vercel's Node.js function runtime transpiles
+// this file in isolation and hands it to Node's OWN ESM loader at runtime,
+// which requires a fully-specified extension on every relative import —
+// found live as `ERR_MODULE_NOT_FOUND` for every route, including /api/health.
+// `moduleResolution: "bundler"` (tsconfig.json) explicitly permits a `.js`
+// specifier resolving to a sibling `.ts` file, so this doesn't affect
+// typechecking, Vite, or tsx — only makes Node's own loader happy too.
+import { search, reverseGeocode, walkRoute, retrieveTheme } from './onemap.js';
+import { transcribe } from './meralion.js';
+import { extractDestination, rewriteToSteps } from './llm.js';
+import { memoizeAsync } from './cache.js';
+import { generateCandidates, scoreRoute, rankRoutes, describeScore } from '../src/core/comfort.js';
+import { collectLandmarks, localisedName } from '../src/core/landmarks.js';
+import { validateSteps, templateSteps, lowercaseFirst } from '../src/core/validate.js';
+import { haversineM } from '../src/core/geo.js';
+import { fill, ms, zh } from '../src/phrases/index.js';
 import type {
   Building,
   Journey,

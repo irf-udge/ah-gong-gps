@@ -25,8 +25,8 @@
 // the literal string, see `nilToNull` below.
 
 import type { BBox, Building, LatLng, Place, Poi, PoiKind, RouteCandidate, Manoeuvre, Action } from '../src/core/types';
-import { decodePolyline, haversineM } from '../src/core/geo';
-import { memoizeAsync } from './cache';
+import { decodePolyline, haversineM } from '../src/core/geo.js';
+import { memoizeAsync } from './cache.js';
 
 export const ONEMAP_BASE = 'https://www.onemap.gov.sg';
 

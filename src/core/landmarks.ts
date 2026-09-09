@@ -22,7 +22,7 @@
 
 import type { Building, Lang, Landmark, LandmarkKind, Manoeuvre, Poi } from './types';
 import type { PlaceProvider } from '../providers/types';
-import { bearingDeg, haversineM } from './geo';
+import { bearingDeg, haversineM } from './geo.js';
 
 /** OneMap caps the reverse-geocode buffer at 500 m; 50 m is our landmark radius. */
 export const LANDMARK_RADIUS_M = 50;

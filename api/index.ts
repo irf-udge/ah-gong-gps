@@ -6,4 +6,4 @@
 // and this (Vercel Node.js serverless function). See its own header comment
 // for why app.listen() is guarded rather than removed.
 
-export { default } from '../server/index';
+export { default } from '../server/index.js';
