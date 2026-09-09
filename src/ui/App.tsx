@@ -6,25 +6,27 @@
 // route anywhere, so this file owns both.
 //
 //   DEMO  (opts.demoMode, ?demo=1 or VITE_DEMO_MODE=1): runDemoFlow — tap ->
-//   1.2s pacing -> canned transcript -> buildDemoJourney (bypasses
+//   2.5s pacing -> canned transcript -> buildDemoJourney (bypasses
 //   core/comfort.ts and server/llm.ts entirely on purpose, see its own doc)
-//   -> speak each step -> simulated walk -> arrive. Zero network. Failure
-//   plan's layer 3 (see DEVPLAN.md) — also what a judge testing indoors
-//   with no mic/GPS/network should demo instead.
+//   -> ConfirmationScreen -> speak each step -> simulated walk -> arrive.
+//   Zero network. Failure plan's layer 3 (see DEVPLAN.md) — also what a
+//   judge testing indoors with no mic/GPS/network should demo instead.
 //
 //   REAL  (default when neither of the above is set): runRealFlow — tap ->
 //   record 5s of real audio (audio/capture.ts) -> POST /api/understand
 //   directly (not through providers.stt — see stt.ts's file header on why)
 //   -> either resolveAndStart (unambiguous destination) or CLARIFY (asks,
-//   waits for a tap or a re-listen) -> POST /api/journey -> speak each real
-//   step -> walk it (GPS/simulated/manual per ?loc=) -> arrive. "I'm lost"
-//   (handleImLost) calls POST /api/reanchor the same way.
+//   waits for a tap or a re-listen) -> POST /api/journey -> ConfirmationScreen
+//   (reviews the route, owns the actual "start" action — see
+//   handleStartJourney) -> speak each real step -> walk it (GPS/simulated/
+//   manual per ?loc=) -> arrive. "I'm lost" (handleImLost) calls
+//   POST /api/reanchor the same way.
 //
 // Screen map: idle -> HomeScreen, listening/resolving -> ListeningScreen,
-// clarifying -> ClarifyScreen, navigating -> JourneyScreen, arrived ->
-// ArrivedScreen, ?judge=1 -> JudgeView (checked first, independent of
-// phase). planning/ready/lost/error don't have dedicated screens yet —
-// they fall back to ListeningScreen rather than a blank one.
+// clarifying -> ClarifyScreen, ready -> ConfirmationScreen, navigating ->
+// JourneyScreen, arrived -> ArrivedScreen, ?judge=1 -> JudgeView (checked
+// first, independent of phase). planning/lost/error don't have dedicated
+// screens — they fall back to ListeningScreen rather than a blank one.
 
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { haversineM } from '../core/geo';
@@ -211,18 +213,31 @@ export function App() {
 
       const journey = buildDemoJourney(lang);
       dispatch({ type: 'RESOLVED', journey });
-      startSimulatedWalk(journey);
+      // ConfirmationScreen owns the final start action (see
+      // handleStartJourney) — same as resolveAndStart below. Previously this
+      // called startSimulatedWalk() immediately too, which silently started
+      // a location-provider walk while ConfirmationScreen was still showing
+      // (phase stuck at 'ready', so its STEP_ADVANCE/ARRIVED dispatches were
+      // no-ops per journey/machine.ts's 'ready' case) — harmless in practice
+      // since handleStartJourney's own startSimulatedWalk() call stops and
+      // cleanly restarts it from position 0, but wasted work.
     } catch (err) {
       dispatch({ type: 'ERROR', message: err instanceof Error ? err.message : String(err) });
     }
-  }, [lang, startSimulatedWalk]);
+  }, [lang]);
 
   // Origin used to resolve the CURRENT clarify question — captured once per
   // listen so ClarifyScreen's onPick (which fires later, after the user
   // taps) still has the right position without re-asking the browser.
   const clarifyOriginRef = useRef<LatLng | null>(null);
 
-  /** Shared by the real flow's unambiguous case AND ClarifyScreen's onPick — both end the same way: plan the route and start walking it. */
+  /**
+   * Shared by the real flow's unambiguous case AND ClarifyScreen's onPick —
+   * both end the same way: plan the route and hand off to ConfirmationScreen
+   * for review. Despite the name, this no longer starts the walk itself —
+   * `handleStartJourney` (ConfirmationScreen's onStart) owns that, same as
+   * runDemoFlow's fixture path above.
+   */
   const resolveAndStart = useCallback(
     async (destination: Place, origin: LatLng) => {
       const body: PlanJourneyRequest = { origin, destination, lang };
@@ -234,9 +249,8 @@ export function App() {
       if (!res.ok) throw new Error(`/api/journey failed: ${res.status} ${await res.text()}`);
       const { journey } = (await res.json()) as PlanJourneyResponse;
       dispatch({ type: 'RESOLVED', journey });
-      // ConfirmationScreen owns the final start action.
     },
-    [lang, startSimulatedWalk],
+    [lang],
   );
 
   /**
@@ -434,9 +448,9 @@ export function App() {
       );
 
     default:
-      // 'planning' (never set by reduce() — see machine.ts), 'ready'
-      // (auto-advances to 'navigating' in the same tick, never rendered),
-      // 'lost' and 'error' (CP4/no dedicated screen yet) all land here.
+      // 'planning' (never set by reduce() — see machine.ts), 'lost' and
+      // 'error' (no dedicated screen) all land here. 'ready' has its own
+      // case above (ConfirmationScreen) and never reaches this branch.
       return <ListeningScreen lang={lang} thinking={true} onSayAgain={handleSayAgain} />;
   }
 }

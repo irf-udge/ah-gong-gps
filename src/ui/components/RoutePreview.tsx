@@ -14,7 +14,7 @@ export function RoutePreview({ points, current }: { points: LatLng[]; current?: 
   return (
     <div className="route-preview" aria-label="Route map" role="img">
       <svg viewBox="0 0 200 150" preserveAspectRatio="none">
-        <path d={points.map(project).join(' L ')} className="route-line" />
+        <path d={`M ${points.map(project).join(' L ')}`} className="route-line" />
         <circle cx={project(start).split(',')[0]} cy={project(start).split(',')[1]} r="5" className="route-start" />
         <circle cx={project(end).split(',')[0]} cy={project(end).split(',')[1]} r="6" className="route-end" />
         {current && <circle cx={project(current).split(',')[0]} cy={project(current).split(',')[1]} r="6" className="route-current" />}

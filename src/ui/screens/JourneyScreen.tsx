@@ -4,8 +4,15 @@
 // working-memory load, and working memory is exactly what declines with age.
 // The brief is explicit about this; it is the easiest rule to break by accident.
 //
-// Layout: current step in --fs-step, an always-visible "I'm lost" button, and
-// nothing else. No map on this screen.
+// Layout: current step in --fs-step, an always-visible "I'm lost" button.
+//
+// ⚠️ 2026-09-10: CONTRACTS.md § 8's "no map" rule was written against a real
+// interactive map (pan/zoom/street detail) — the actual barrier the product
+// exists to remove. `RoutePreview` here is a deliberate, narrower exception:
+// a static schematic line (start/end dots on the route's shape only, no
+// tiles, no interaction) shown alongside — never instead of — the single
+// current-step instruction above. Still no list of upcoming turns anywhere
+// on this screen.
 
 import type { Lang, Step } from '../../core/types';
 import { ms, zh } from '../../phrases';

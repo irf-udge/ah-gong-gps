@@ -839,8 +839,14 @@ Not style preferences — these are the reason the product exists.
 - **Never render a list of upcoming steps.** One step at a time. A list is
   working-memory load, and working memory is exactly what declines with age.
   This is the easiest rule to break by accident.
-- **No map on senior-facing screens.** The map is the barrier we're removing.
-  Maps are allowed in the judge view only.
+- **No real map on senior-facing screens.** A real, interactive map (tiles,
+  pan/zoom, street detail) is the barrier we're removing — that's still never
+  allowed outside the judge view. ⚠️ **Deliberate exception, added 2026-09-10:**
+  `RoutePreview` (a static schematic line — route shape, start/end dots only,
+  no tiles/interaction) is accepted on `ConfirmationScreen` and
+  `JourneyScreen`, shown alongside (never instead of) the single current
+  instruction — a conscious call by the team, not an oversight. Still applies
+  in full: never a real map, never a substitute for the one-instruction focus.
 - Type: step text ≥ 44px, body ≥ 28px, nothing senior-facing below 24px.
 - Contrast: high, both directions. Never grey-on-grey.
 - Tap targets ≥ 64px.

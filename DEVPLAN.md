@@ -680,11 +680,40 @@ Owns `src/ui/**`, `src/journey/**`, `src/main.tsx`.
       specifically).
 - [ ] Sunlight legibility pass on the real device — needs a physical phone
       outdoors, out of reach here.
-- [x] Verified by inspection: no senior-facing screen (`HomeScreen`,
-      `ListeningScreen`, `ClarifyScreen`, `JourneyScreen`, `ArrivedScreen`)
-      renders a map or a list of steps. `JudgeView` is the only screen with
-      either, and it's judge-only (`?judge=1`, never reached by the
-      senior-facing state machine).
+- [x] Verified by inspection (updated 2026-09-10, see merge note below): no
+      senior-facing screen renders a *real* map (tiles/pan/zoom/street
+      detail) or a list of upcoming steps. `ConfirmationScreen` and
+      `JourneyScreen` do render `RoutePreview` — a static schematic line, not
+      a real map — as a deliberate, team-agreed exception (CONTRACTS.md § 8).
+      `JudgeView` is the only screen with a full map/route table, and it's
+      judge-only (`?judge=1`, never reached by the senior-facing state
+      machine).
+
+### 2026-09-10 — merged Lija's `lija` branch (UI bootstrap: new screens + redesign)
+
+`origin/lija` (not `origin/journey`, which is stale) turned out not to be
+behind `main` at all — `git merge-base main origin/lija` was exactly main's
+tip, so this was a clean fast-forward, not a divergent-history merge. She
+shipped: `ConfirmationScreen` (new `ready`-phase screen — route summary +
+comfort rationale + Start/Change, sitting between "resolved" and
+"navigating"), `Icon`/`Trail`/`RoutePreview` components, a full visual
+redesign (warm palette, "EZ Jalan" branding in the UI copy and README —
+`package.json`'s `ah-gong-gps` name is untouched, so this is UI-facing only
+for now), and a `vite.config.ts` fix bridging `DEMO_MODE`→`VITE_DEMO_MODE`.
+`ListeningScreen` was extended (an icon added), not removed.
+
+One real bug found and fixed post-merge: her `ConfirmationScreen` refactor
+correctly stopped `resolveAndStart` (real pipeline) from auto-starting the
+walk — the comment *"ConfirmationScreen owns the final start action"* — but
+the parallel `runDemoFlow` (fixture path) kept its `startSimulatedWalk()`
+call after removing only the `START_JOURNEY` dispatch. Net effect: in demo
+mode, the location-provider walk silently started the instant the
+destination resolved, one whole `ConfirmationScreen` dwell-time before the
+user ever tapped Start — invisible in practice (`ready`-phase
+`STEP_ADVANCE`/`ARRIVED` dispatches are no-ops per `journey/machine.ts`, and
+`handleStartJourney` stops-and-restarts the provider fresh from position 0
+when actually tapped) but wasted work and inconsistent with her own stated
+intent. Removed the leftover call so both paths match.
 
 ---
 
