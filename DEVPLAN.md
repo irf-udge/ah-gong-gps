@@ -199,12 +199,21 @@ Owns `src/ui/**`, `src/journey/**`, `src/main.tsx`.
 - [ ] `journey/location.ts` — **`SimulatedProvider` first.** It's the primary demo
       path (judges are indoors) and the only way to develop without walking
       around Ang Mo Kio. Give it speed control + `jumpTo`.
+      ⚠️ `createLocationProvider('simulated', path)` in `providers/index.ts`
+      (A, done) is what constructs this — call it once you have a route, not
+      `new SimulatedProvider(...)` directly, so demo/GPS/manual stay one switch.
 - [ ] `journey/machine.ts` — `reduce()` over `JourneyEvent`
 - [ ] `journey/machine.ts` — `shouldAdvance()`: monotonic, hysteresis, debounced
 - [ ] `ui/App.tsx` — replace the scaffold placeholder with the screen router
 - [ ] `HomeScreen` — one big button, nothing else
 - [ ] `JourneyScreen` — **ONE step, never a list**
 - [ ] Wire C's UI → B's TTS → A's fixture data. **This is CP1.**
+      ⚠️ **`providers/fixtures.ts::buildDemoJourney(lang)` (A, done) is the
+      call to make when `demoMode` is true** — it returns a complete, playable
+      `Journey` straight from the fixture (origin, destination, scored route,
+      landmarks, steps). Don't hit `POST /api/journey` for the demo path; that
+      endpoint doesn't exist yet regardless (still 501). See CONTRACTS.md
+      § Provider interfaces.
 
 ### CP2/CP3
 - [ ] `ListeningScreen` — visible "still working" state; silence reads as broken
