@@ -10,7 +10,6 @@ APIs, and several of them contradict what you'd reasonably assume.
 
 ## 1. File ownership — what not to touch
 
-**Team of 2, not 3.** The project was originally split three ways (A/B/C);
 Irfan now covers both the original A role (pipeline spine + comfort routing)
 and the original B role (voice I/O), and the third teammate — now Lija —
 covers what was C. File headers and this table reflect that merge; nothing

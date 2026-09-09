@@ -1,98 +1,130 @@
-# Ah Gong GPS
+# EZ Jalan
 
-**Voice navigation for Singaporean seniors who can't use an English map app.**
+**Voice-first navigation for seniors in Singapore.**
 
-Press one big button. Say where you want to go, in your own language. Get walked
-there one landmark at a time, out loud — no map, no typing, no English.
+Press one button, say where you want to go in your preferred language, and receive simple spoken directions based on nearby landmarks.
 
-> **Bad** (what Google Maps says): *"Head northwest on Ang Mo Kio Avenue 10 for 240 metres, then turn right."*
->
-> **Ours** (spoken in Mandarin or Malay): *"Walk to the market. When you see the bus stop, turn right. There's a bench here if you want to rest."*
+> Typical navigation: *"Head northwest on Ang Mo Kio Avenue 10 for 240 metres."*
 
-Built for the *Vibe for Good* hackathon. Singapore became a super-aged society in
-2026; English is a minority home language among citizens 65+, and every mainstream
-navigation app is English-first and map-first. Seniors navigate by landmarks, not
-street names and distances.
+> EZ Jalan: *"Walk to the market. Turn right at the bus stop. There’s a bench nearby if you need to rest."*
 
-**Our defensible combination:** dialect conversation + elderly-comfort routing +
-landmark-grounded guidance + a live journey companion. No existing product does
-all four.
+*Seniors navigate by landmarks, not street names and distances.*
+
+Built for the *Vibe for Good Hackathon 2026*.
+
+**Features** 
+- Multilingual voice input
+- Destination extraction from natural speech
+- Walking routes using OneMap
+- Route scoring for elderly comfort
+- Landmark-based spoken directions
+- Live journey guidance
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    A["🎙️ Microphone"] --> B["16 kHz Mono WAV"]
+
+    B --> C["MERaLiON<br/>Speech-to-Text"]
+
+    C --> D["Gemini<br/>Extract destination phrase"]
+
+    D --> E["OneMap<br/>Geocode destination<br/>Generate walking routes"]
+
+    E --> F["Comfort Scoring Engine"]
+
+    G["OpenStreetMap / Overpass<br/>Shelters · Benches · Toilets"] --> F
+
+    F --> H["Select best accessible route"]
+
+    H --> I["Reverse Geocoding<br/>Real nearby landmarks"]
+
+    I --> J["Gemini<br/>Rewrite route into<br/>landmark-based instructions"]
+
+    J --> K["Schema + Lexicon Validation"]
+
+    K --> L["Browser SpeechSynthesis"]
+
+    L --> M["GPS / Simulated Walk<br/>Geofenced step progression"]
+```
+---
+
+## Pipeline
+
+Mic → MERaLiON → Gemini → OneMap → comfort scoring → real landmarks → Gemini rewrite → validation → spoken guidance
+
+The browser records 16 kHz mono WAV audio and sends it to the Express API. MERaLiON transcribes the speech, while Gemini extracts the intended destination.
+
+OneMap geocodes the destination and generates walking routes. Candidate routes are scored using nearby shelters, benches, toilets, and route characteristics sourced from OpenStreetMap/Overpass.
+
+Nearby landmarks are then resolved and supplied to Gemini, which rewrites route steps into short landmark-based instructions. The generated instructions are validated against the known landmark set before being spoken through the browser.
+
+GPS — or a simulated walk during development — advances the journey as the user enters each step's geofence.
 
 ---
 
 ## Quickstart
 
+### Prerequisites
+- Node.js
+- npm
+
+### 1. Install dependencies
+
 ```bash
 npm install
-cp .env.example .env     # then fill it in — see Keys below
-npm run dev              # web on :5173, api on :8787
 ```
 
-You can build and run the entire app **before any API key exists** — every
-provider has a fixture implementation:
+### 2. Copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
+Then add the required credentials to .env. See Keys below.
+
+### 3. Start the development servers
+```bash
+npm run dev
+```
+
+This starts both the web app and API:
+- Web: http://localhost:5173
+- API: http://localhost:8787
+
+### Running without API keys
+You can build and run the entire application without any API keys.
+
+Each external provider has a fixture implementation for local development and testing.
+
+Start the app in demo mode:
 
 ```bash
 DEMO_MODE=1 npm run dev
 ```
 
-Other scripts: `npm run typecheck` · `npm test` · `npm run build` · `npm run etl`
+## Other Commands
+| Command | Description |
+|---|---|
+| `npm run typecheck` | Check TypeScript types |
+| `npm test` | Run the test suite |
+| `npm run build` | Build the application for production |
+| `npm run etl` | Run the ETL/data pipeline |
 
 ---
 
-## Keys
+### Keys
 
-All three are read by the **server only**. None ever reach the browser — that is
-the entire reason `server/` exists.
+All three are read by the **server only**, none ever reach the browser.
 
-| Key | Where to get it | Notes |
+| Key | Purpose | Notes |
 | --- | --- | --- |
 | `MERALION_API_KEY` | `POST https://api.meralion.ai/keys/register`, or **My Key** at <https://meralion.org/api-console> | Speech-to-text. Check your tier with `GET /v1/rate-limit/status` as soon as you have it. |
 | `ONEMAP_EMAIL` / `ONEMAP_PASSWORD` | <https://www.onemap.gov.sg/apidocs/register> | The server exchanges these for a ~3-day token and refreshes on 401. Don't paste a raw token. |
-| `GEMINI_API_KEY` | <https://aistudio.google.com/apikey> (free tier) | Destination extraction (`gemini-2.5-flash-lite`) + instruction rewrite (`gemini-2.5-flash`). Check real rate limits at <https://aistudio.google.com/rate-limit> once you have a key — Google doesn't publish fixed numbers. |
-
-**Registration for MERaLiON and OneMap is a human step — do it first.** Everything
-downstream is blocked on those two. See `DEVPLAN.md` § Phase 0.
-
-Check what the server can see without leaking anything:
-
-```bash
-curl http://localhost:8787/api/health
-```
-
----
-
-## Architecture in one paragraph
-
-The browser records **16 kHz mono WAV** and posts it to our thin Express layer,
-which forwards to **MERaLiON** for transcription and to **Gemini** to pull out
-the destination phrase. **OneMap** resolves that to coordinates and returns walk
-routes; we generate several route variants ourselves and score them for elderly
-comfort (shelter, benches, toilets, segment length), because *OneMap has no
-accessibility routing API*. We reverse-geocode each turn to collect **real**
-nearby landmarks, hand only those to Gemini to rewrite into short spoken steps,
-validate the output against the landmark list, and speak it with the browser's
-own speech synthesis as GPS (or a simulated walk) crosses each geofence.
-
-Full detail, including every verified API fact and both MERaLiON traps, is in
-**[`CONTRACTS.md`](./CONTRACTS.md)**. Read that before writing code.
-
----
-
-## Who owns what
-
-Team of 2 now, not 3 — Irfan covers what were originally two separate roles
-(pipeline spine + comfort routing, and voice I/O), Lija covers the third.
-
-Ownership is **by file**. Every source file starts with an `OWNER:` header. Do
-not edit a file you don't own — open an issue or message the owner instead. This
-is what keeps the two of us out of each other's merge conflicts.
-
-| Person | Area | Directories |
-| --- | --- | --- |
-| **Irfan** *(you)* | Pipeline spine + comfort routing + Voice I/O | `src/core/`, `src/providers/`, `src/audio/`, `src/phrases/`, `server/`, `data/`, `fixtures/` |
-| **Lija** | Journey experience | `src/ui/`, `src/journey/`, `src/main.tsx` |
-
-Your task list is in **[`DEVPLAN.md`](./DEVPLAN.md)**.
+| `GEMINI_API_KEY` | <https://aistudio.google.com/apikey> (free tier) | Destination extraction (`gemini-2.5-flash-lite`) + instruction rewrite (`gemini-2.5-flash`). Check real rate limits at <https://aistudio.google.com/rate-limit> once you have a key. |
 
 ---
 
