@@ -66,12 +66,23 @@ export type PoiKind =
   | 'park'
   | 'eldercare';
 
-/** A point from a baked dataset (data/) or a OneMap theme layer. */
+/**
+ * A point (or, for shelter, a line) from a baked dataset (data/) or a OneMap
+ * theme layer.
+ *
+ * `path` is set only for line-shaped amenities — covered walkways and
+ * building-passage linkways from OSM/Overpass are LINES, not points, and
+ * `kind: 'shelter'` is the one PoiKind that can carry one. `at` is still
+ * always populated (the way's first vertex) so anything that only needs a
+ * pin location keeps working without checking for `path`.
+ */
 export interface Poi {
   id: string;
   kind: PoiKind;
   name: string | null;
   at: LatLng;
+  /** Only for line-shaped amenities (kind: 'shelter'). See core/geo.ts. */
+  path?: LatLng[];
 }
 
 // ─── Landmarks ───────────────────────────────────────────────────────────────

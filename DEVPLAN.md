@@ -106,8 +106,17 @@ Owns `src/core/**`, `src/providers/{index,types,onemap,fixtures}.ts`,
 - [ ] `POST /api/understand`, `/api/journey`, `/api/reanchor`
 
 ### CP3/CP4 — the differentiator
-- [ ] `core/comfort.ts` — `generateCandidates` (waypoint variants, **parallel** calls)
-- [ ] `core/comfort.ts` — `scoreRoute`, `describeScore`, `rankRoutes`
+- [x] ~~`core/comfort.ts` — `generateCandidates`, `scoreRoute`, `describeScore`,
+      `rankRoutes`.~~ **DONE, built on `@turf/turf` (installed).** See
+      `CONTRACTS.md` § 9 for the function map and two real bugs the smoke test
+      caught (a non-pedestrian covered way, a false "shortest route" rationale
+      claim) — both fixed and documented inline.
+      ⚠️ **`stairsCount` is a placeholder (`0`)** — no data source wired up yet.
+      OSM's `highway=steps` is queryable via the same Overpass pull that found
+      shelter/bench/toilet but hasn't been pulled. Real gap, not fabricated.
+- [ ] Wire `generateCandidates`/`scoreRoute` into `server/llm.ts`'s journey
+      endpoint once `server/onemap.ts`'s `walkRoute` is real (CP2) — tested so
+      far against a mock `RoutingProvider`, not live OneMap.
 - [ ] Return `rejected` candidates so C's judge view has something to show
 - [ ] Pre-warm the demo route's cache for stage day
 

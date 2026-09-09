@@ -450,3 +450,71 @@ Not style preferences — these are the reason the product exists.
 - The clarification loop is a **feature to demo**, not an error path.
 
 Tokens are in `src/ui/theme.css`.
+
+---
+
+## 9. Geometry (turf.js)
+
+`core/geo.ts` is built on **`@turf/turf` (v7.4.0)**, not hand-rolled trig. Verified
+against the actual installed package (ran real inputs, printed real outputs —
+see the git history of this section for the check script) before writing any
+of the code that depends on it, because a couple of these shapes are easy to
+misremember and would fail silently (wrong units, wrong property name) rather
+than throw.
+
+> ⚠️ **Turf positions are `[lng, lat]`** — the opposite order from our
+> `LatLng {lat, lng}` used everywhere else. Every conversion goes through
+> `toPosition`/`fromPosition`/`toPoint`/`toLineString` in `geo.ts` — never
+> build a turf `Position` by hand anywhere else. A silently-swapped coordinate
+> is exactly the kind of bug that only shows up as "the shelter score is
+> nonsense" three hours before a deadline.
+
+### Function → use-case map
+
+| Need | Turf function | Notes |
+|---|---|---|
+| Distance, bearing | `@turf/distance`, `@turf/bearing` | Pass `{ units: 'meters' }`. `bearing` returns **-180..180**; `geo.bearingDeg` normalises to our documented 0..360. |
+| Total route length | `@turf/length` | — |
+| Closest point on a route + progress | `@turf/nearest-point-on-line` | Result properties are `dist` (metres to the line) and `location` (metres **along** the line) — verified exact key names live, don't guess these. `location` is what step-advance/off-route geofencing should key off (monotonic), not raw proximity to a manoeuvre point. |
+| Extract one leg of a route | `@turf/line-slice` | Both endpoints get snapped to the line first. |
+| Point N metres along a route | `@turf/along` | Feeds both shelter-coverage sampling and `SimulatedProvider`'s walked position. |
+| "Comfort envelope" around a route | `@turf/buffer` | `buffer()` can return `undefined` for degenerate input — `geo.routeBuffer` throws rather than silently propagating `undefined`. |
+| Point amenities within that envelope | `@turf/points-within-polygon` | One bulk filter, not a loop of manual distance checks. Used for **both** candidate-waypoint selection (any kind) and bench/toilet counting (pre-filter by kind first). |
+| Shelter coverage (a LINE amenity, not points) | `@turf/point-to-line-distance` | `points-within-polygon` doesn't apply here — shelter is linear. `geo.sampleShelterCoverage` instead samples the route every 10 m via `along` and tests each sample against the shelter ways via this function. |
+
+### Why `Poi` grew a `path` field
+
+Shelter data from OSM/Overpass (§2.3) is **lines** (covered walkways), not
+points — the original `Poi { at: LatLng }` couldn't represent that. `Poi` now
+carries an optional `path?: LatLng[]`, set only for `kind: 'shelter'`; `at`
+stays populated (the way's first vertex) so anything that only needs a pin
+location keeps working unchanged. `poisWithinRadius` reads `.at` for every
+kind (a shelter way's first vertex is a fine stand-in as a waypoint
+candidate); `sampleShelterCoverage` is the one place that needs the full
+`.path`.
+
+### Two real bugs the smoke test caught — both fixed, worth knowing about
+
+Ran the new code against **real** Overpass amenity data (the AMK pull from
+§2.3) and the real fixture route with a mock `RoutingProvider` (OneMap's own
+`walkRoute` isn't implemented yet, so this exercises `comfort.ts`/`geo.ts`,
+not OneMap) before trusting any of it:
+
+1. **The bus-interchange gotcha showed up for real.** The raw `covered=yes`
+   pull included `highway=service` ways (the AMK Bus Interchange driveway).
+   `data/etl.ts`'s pedestrian-`highway` filter (§2.3) has to run before
+   anything reaches `Poi[]`, not after — the smoke test builds `Poi[]` the
+   same way the real ETL should and explicitly counts what it excluded.
+2. **`describeScore`'s fallback made a false claim.** A via-waypoint
+   candidate that was 9 m *longer* than the direct route, with 21% shelter
+   coverage (just under the original 25% threshold), fell through every
+   condition and hit an unconditional `shortestWalk` fallback — "这条路比较近"
+   ("this route is shorter") on a route that wasn't. Not an LLM
+   hallucination, but the same failure *shape*: a false claim reaching
+   output. Fixed by (a) lowering the `partlySheltered` threshold to 10% so
+   genuine partial coverage isn't left with nothing to say, and (b) only ever
+   using `shortestWalk` when `extraDistanceM` is actually ~0. An empty
+   rationale string is now the correct fallback when nothing true applies —
+   callers should treat `""` as "nothing to show/speak," not an error.
+
+Both are documented inline in `comfort.ts` at the exact line they were fixed.
