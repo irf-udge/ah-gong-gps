@@ -6,6 +6,11 @@ const API_PORT = process.env.API_PORT ?? '8787';
 
 export default defineConfig({
   plugins: [react()],
+  // Keep the documented DEMO_MODE=1 command consistent across the API and
+  // browser bundles. Vite only exposes VITE_* variables automatically.
+  define: {
+    'import.meta.env.VITE_DEMO_MODE': JSON.stringify(process.env.VITE_DEMO_MODE ?? process.env.DEMO_MODE ?? ''),
+  },
   resolve: {
     alias: {
       '@core': fileURLToPath(new URL('./src/core', import.meta.url)),

@@ -56,9 +56,12 @@ import { HomeScreen } from './screens/HomeScreen';
 import { JourneyScreen } from './screens/JourneyScreen';
 import { JudgeView } from './screens/JudgeView';
 import { ListeningScreen } from './screens/ListeningScreen';
+import { ConfirmationScreen } from './screens/ConfirmationScreen';
 
 /** Demo-mode pacing: how long "listening" shows before the canned transcript "arrives". Long enough to read, short enough not to feel broken. */
-const DEMO_LISTEN_MS = 1200;
+// Give an older user time to notice the listening state before the route
+// confirmation appears during the fixture demo.
+const DEMO_LISTEN_MS = 2500;
 /**
  * Playback speed for the simulated walk. NOT SIM_SPEED_MPS's realistic 1x —
  * that's ~12 minutes for a real ~700m route, found live wiring this up.
@@ -208,7 +211,6 @@ export function App() {
 
       const journey = buildDemoJourney(lang);
       dispatch({ type: 'RESOLVED', journey });
-      dispatch({ type: 'START_JOURNEY' });
       startSimulatedWalk(journey);
     } catch (err) {
       dispatch({ type: 'ERROR', message: err instanceof Error ? err.message : String(err) });
@@ -232,8 +234,7 @@ export function App() {
       if (!res.ok) throw new Error(`/api/journey failed: ${res.status} ${await res.text()}`);
       const { journey } = (await res.json()) as PlanJourneyResponse;
       dispatch({ type: 'RESOLVED', journey });
-      dispatch({ type: 'START_JOURNEY' });
-      startSimulatedWalk(journey);
+      // ConfirmationScreen owns the final start action.
     },
     [lang, startSimulatedWalk],
   );
@@ -292,6 +293,12 @@ export function App() {
 
   const handleSayAgain = useCallback(() => dispatch({ type: 'SAY_AGAIN' }), []);
   const handleReset = useCallback(() => dispatch({ type: 'RESET' }), []);
+  const handleStartJourney = useCallback(() => {
+    const journey = stateRef.current.journey;
+    if (!journey) return;
+    dispatch({ type: 'START_JOURNEY' });
+    startSimulatedWalk(journey);
+  }, [startSimulatedWalk]);
 
   const handleClarifyPick = useCallback(
     (place: Place) => {
@@ -401,6 +408,9 @@ export function App() {
         />
       );
 
+    case 'ready':
+      return state.journey ? <ConfirmationScreen journey={state.journey} lang={lang} onStart={handleStartJourney} onChange={handleReset} /> : <HomeScreen lang={lang} onSpeak={handleSpeak} />;
+
     case 'navigating': {
       const step = state.journey?.steps[state.currentStepIndex];
       if (!state.journey || !step) return <HomeScreen lang={lang} onSpeak={handleSpeak} />; // defensive — shouldn't happen
@@ -411,6 +421,7 @@ export function App() {
           stepCount={state.journey.steps.length}
           onImLost={handleImLost}
           onRepeat={() => providers.tts.speak(step.spokenText, lang).catch(() => {})}
+          route={state.journey.route.candidate.polyline}
         />
       );
     }

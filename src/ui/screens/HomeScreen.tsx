@@ -29,10 +29,11 @@ export interface HomeScreenProps {
 export function HomeScreen({ lang, onSpeak }: HomeScreenProps) {
   const book = lang === 'ms' ? ms : zh;
   return (
-    <main className="screen" style={{ justifyContent: 'stretch' }}>
-      <button type="button" className="btn-primary" style={{ flex: 1, fontSize: 'var(--fs-step)' }} onClick={onSpeak}>
-        {book.tapToSpeak}
-      </button>
+    <main className="screen home-screen">
+      <header className="brand"><span>EZ Jalan</span><span className="language">{lang === 'ms' ? 'Bahasa Melayu' : '中文'}</span></header>
+      <section className="home-copy"><p className="eyebrow">{lang === 'ms' ? 'Jalan dengan tenang' : '轻松出发'}</p><h1>{lang === 'ms' ? 'Ke mana anda mahu pergi?' : '您想去哪里？'}</h1><p className="location-line">{lang === 'ms' ? 'Anda berhampiran Blk 226, Ang Mo Kio' : '您在宏茂桥第226座附近'}</p></section>
+      <button type="button" className="mic-button" aria-label={book.tapToSpeak} onClick={onSpeak}><span className="mic-symbol">●</span><span>{lang === 'ms' ? 'Tekan dan cakap' : '按下，说出目的地'}</span></button>
+      <p className="quick-destinations">AMK Hub　·　Wet market　·　Clinic</p>
     </main>
   );
 }

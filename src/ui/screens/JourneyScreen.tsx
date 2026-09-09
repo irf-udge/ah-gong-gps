@@ -9,6 +9,7 @@
 
 import type { Lang, Step } from '../../core/types';
 import { ms, zh } from '../../phrases';
+import { RoutePreview } from '../components/RoutePreview';
 
 export interface JourneyScreenProps {
   lang: Lang;
@@ -17,34 +18,32 @@ export interface JourneyScreenProps {
   stepCount: number;
   onImLost: () => void;
   onRepeat: () => void;
+  route?: import('../../core/types').LatLng[];
+  onPause?: () => void;
+  paused?: boolean;
 }
 
-export function JourneyScreen({ lang, step, stepCount, onImLost, onRepeat }: JourneyScreenProps) {
+export function JourneyScreen({ lang, step, stepCount, onImLost, onRepeat, route, onPause, paused }: JourneyScreenProps) {
   const book = lang === 'ms' ? ms : zh;
   const lostLabel = lang === 'ms' ? 'Saya sesat' : '我迷路了';
   const currentStep = Math.min(step.index + 1, stepCount);
 
   return (
     <main className="screen" style={{ justifyContent: 'space-between' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 'var(--fs-md)', fontWeight: 700 }} aria-label={`${currentStep} of ${stepCount}`}>
-          {currentStep} / {stepCount}
-        </span>
-        <span style={{ fontSize: 'var(--fs-md)', color: 'var(--fg-muted)' }} aria-hidden="true">
-          {lang === 'ms' ? 'Langkah' : '步骤'}
-        </span>
-      </header>
+      <div className="trail" aria-label={`${currentStep} of ${stepCount}`}><i className="on" /><i className={currentStep > 1 ? 'on' : ''} /><i className={currentStep > 2 ? 'on' : ''} /></div>
 
       <section aria-live="polite" style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
         <p className="step-text" style={{ margin: 0, width: '100%' }}>
           {step.displayText}
         </p>
       </section>
+      {route && <RoutePreview points={route} />}
 
       <nav aria-label={lang === 'ms' ? 'Pilihan perjalanan' : '行程选项'} style={{ display: 'grid', gap: 'var(--gap)' }}>
         <button type="button" className="btn-primary" onClick={onRepeat}>
           {book.sayAgain}
         </button>
+        {onPause && <button type="button" className="btn-secondary" onClick={onPause}>{paused ? 'Resume' : 'Pause'}</button>}
         <button type="button" className="btn-danger" onClick={onImLost}>
           {lostLabel}
         </button>
