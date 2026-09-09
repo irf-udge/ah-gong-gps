@@ -1,4 +1,4 @@
-// OWNER: B (Voice I/O) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // Speech in. Primary is MERaLiON (hosted, handles Singlish / dialect /
 // code-switching — this is what makes the language claim a LIVE demo rather

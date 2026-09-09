@@ -1,4 +1,4 @@
-// OWNER: A (Pipeline spine) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // The thin API layer. It exists for exactly one reason: three secrets that must
 // never reach the browser — the MERaLiON key, the OneMap token, the Gemini

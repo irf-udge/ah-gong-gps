@@ -1,4 +1,4 @@
-// OWNER: A (Pipeline spine) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // The single wiring point. Everything else in the app depends on the INTERFACES
 // in ./types, never on a concrete class — so swapping a backend is a change
@@ -44,8 +44,9 @@ export function readProviderOptions(): ProviderOptions {
  * silent is the one thing the on-stage kill switch must never do.)
  *
  * STT selection is delegated to stt.createStt(), not reimplemented here —
- * the MERaLiON-vs-WebSpeech race/fallback logic is B's to own; this file
- * only decides demoMode, not how a non-demo failover behaves.
+ * the MERaLiON-vs-WebSpeech race/fallback logic belongs in stt.ts, not
+ * duplicated here; this file only decides demoMode, not how a non-demo
+ * failover behaves.
  */
 export function createProviders(opts: ProviderOptions): Providers {
   return {

@@ -1,4 +1,4 @@
-// OWNER: B (Voice I/O) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // Speech out, via the browser's built-in speechSynthesis.
 //

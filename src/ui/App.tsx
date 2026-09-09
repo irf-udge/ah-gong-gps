@@ -1,4 +1,4 @@
-// OWNER: C (Journey experience) — do not edit unless you are the owner.
+// OWNER: Lija (Journey experience) — do not edit unless you are the owner.
 //
 // Placeholder shell. Renders the scaffold status so anyone who clones the repo
 // and runs `npm run dev` immediately sees what they own and what's left.
@@ -8,9 +8,8 @@
 //   navigating → JourneyScreen, arrived → ArrivedScreen, ?judge=1 → JudgeView.
 
 const OWNERSHIP = [
-  { who: 'A', area: 'Pipeline spine + comfort routing', dirs: 'src/core, src/providers/{index,onemap,fixtures}, server, data, fixtures' },
-  { who: 'B', area: 'Voice I/O', dirs: 'src/audio, src/providers/{stt,tts}, src/phrases' },
-  { who: 'C', area: 'Journey experience', dirs: 'src/ui, src/journey, src/main.tsx' },
+  { who: 'Irfan', area: 'Pipeline spine + comfort routing + Voice I/O', dirs: 'src/core, src/providers, src/audio, src/phrases, server, data, fixtures' },
+  { who: 'Lija', area: 'Journey experience', dirs: 'src/ui, src/journey, src/main.tsx' },
 ];
 
 const PHASE_0 = [

@@ -1,4 +1,4 @@
-// OWNER: A (Pipeline spine) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // THE DIFFERENTIATOR. OneMap has no barrier-free or covered-wayfinding route
 // option (routeType is only walk|drive|pt|cycle), so an "elderly-friendly
@@ -266,7 +266,7 @@ const JOIN: Record<'zh' | 'ms', { comma: string; full: string }> = {
  * Plain-language justification, e.g. "这条路大部分有盖，中途有两张长椅。"
  *
  * TEMPLATE-GENERATED from the numbers in `score`, composed from src/phrases'
- * existing clause fragments (owner B) — this file never invents new
+ * existing clause fragments (src/phrases is also Irfan's now) — this file never invents new
  * translated text. That keeps the hallucination surface at exactly zero and
  * costs no tokens.
  *

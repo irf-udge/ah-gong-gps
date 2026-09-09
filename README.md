@@ -80,15 +80,17 @@ Full detail, including every verified API fact and both MERaLiON traps, is in
 
 ## Who owns what
 
+Team of 2 now, not 3 — Irfan covers what were originally two separate roles
+(pipeline spine + comfort routing, and voice I/O), Lija covers the third.
+
 Ownership is **by file**. Every source file starts with an `OWNER:` header. Do
 not edit a file you don't own — open an issue or message the owner instead. This
-is what keeps three people out of each other's merge conflicts.
+is what keeps the two of us out of each other's merge conflicts.
 
-| | Person | Area | Directories |
-| --- | --- | --- | --- |
-| **A** | *(you)* | Pipeline spine + comfort routing | `src/core/`, `src/providers/{index,types,onemap,fixtures}.ts`, `server/`, `data/`, `fixtures/` |
-| **B** | | Voice I/O | `src/audio/`, `src/providers/{stt,tts}.ts`, `src/phrases/` |
-| **C** | | Journey experience | `src/ui/`, `src/journey/`, `src/main.tsx` |
+| Person | Area | Directories |
+| --- | --- | --- |
+| **Irfan** *(you)* | Pipeline spine + comfort routing + Voice I/O | `src/core/`, `src/providers/`, `src/audio/`, `src/phrases/`, `server/`, `data/`, `fixtures/` |
+| **Lija** | Journey experience | `src/ui/`, `src/journey/`, `src/main.tsx` |
 
 Your task list is in **[`DEVPLAN.md`](./DEVPLAN.md)**.
 

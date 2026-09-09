@@ -1,4 +1,4 @@
-// OWNER: C (Journey experience) — do not edit unless you are the owner.
+// OWNER: Lija (Journey experience) — do not edit unless you are the owner.
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

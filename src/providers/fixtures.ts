@@ -1,9 +1,9 @@
-// OWNER: A (Pipeline spine) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // The on-stage kill switch. With DEMO_MODE=1 every provider resolves from
 // fixtures/ and the app makes ZERO network calls. Rehearse with this on.
 //
-// These are also what unblock B and C on day one: both can build a complete
+// This is also what unblocks Lija on day one — they can build a complete
 // working app against fixtures before a single real API key exists.
 //
 // ⚠️ For a FULL demo journey (not just individual provider calls), don't
@@ -11,7 +11,7 @@
 // buildDemoJourney() below directly. That's the one thing this file adds
 // beyond satisfying the five provider interfaces: an already-assembled,
 // fully-typed Journey straight from the fixture, for whoever wires up
-// journey/machine.ts's demo-mode path (owner C) to call instead of hitting
+// journey/machine.ts's demo-mode path (owner Lija) to call instead of hitting
 // POST /api/journey.
 
 import fixture from '../../fixtures/demo-route.json';

@@ -1,4 +1,4 @@
-// OWNER: C (Journey experience) — do not edit unless you are the owner.
+// OWNER: Lija (Journey experience) — do not edit unless you are the owner.
 //
 // Reached via ?judge=1. NEVER shown to the senior — this is the machinery,
 // and the senior-facing product is defined by hiding exactly this.

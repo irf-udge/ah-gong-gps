@@ -1,4 +1,4 @@
-// OWNER: B (Voice I/O) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // Every fixed string the app can SPEAK. Two reasons this is a phrase book and
 // not LLM output:

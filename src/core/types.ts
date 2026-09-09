@@ -1,4 +1,4 @@
-// OWNER: A (Pipeline spine) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 // This is THE contract. Everything in src/ and server/ compiles against it.
 // If you need a shape that isn't here, ask A to add it — do not define a
 // parallel type in your own file. See CONTRACTS.md § Core types.

@@ -1,4 +1,4 @@
-// OWNER: A (Pipeline spine) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 // The five swap points. Every provider has a real implementation AND a
 // Fixture* implementation; `DEMO_MODE=1` swaps the whole set at once.
 // See CONTRACTS.md § Provider interfaces.

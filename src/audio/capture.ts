@@ -1,4 +1,4 @@
-// OWNER: B (Voice I/O) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // ⚠️ THE TRAP THIS FILE EXISTS TO SOLVE ⚠️
 // MERaLiON accepts wav/mp3/ogg at **16 kHz, mono** and nothing else.

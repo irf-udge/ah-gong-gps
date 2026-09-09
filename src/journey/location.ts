@@ -1,4 +1,4 @@
-// OWNER: C (Journey experience) — do not edit unless you are the owner.
+// OWNER: Lija (Journey experience) — do not edit unless you are the owner.
 //
 // ⚠️ BUILD SimulatedProvider FIRST. It is not a fallback — it is the primary
 // demo path (judges are indoors) AND the only way to develop the journey loop

@@ -1,4 +1,4 @@
-// OWNER: C (Journey experience) — do not edit unless you are the owner.
+// OWNER: Lija (Journey experience) — do not edit unless you are the owner.
 //
 // ⚠️ ONE STEP AT A TIME. Never render a list of upcoming turns — that is
 // working-memory load, and working memory is exactly what declines with age.

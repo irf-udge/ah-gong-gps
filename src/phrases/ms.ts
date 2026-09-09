@@ -1,4 +1,4 @@
-// OWNER: B (Voice I/O) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // Malay. Starter set — read every line aloud before the demo and adjust for
 // naturalness; these are written to be plain and unhurried for a 70+ listener.

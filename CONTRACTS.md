@@ -1,39 +1,44 @@
 # CONTRACTS
 
 The authoritative reference. If code and this document disagree, **the code in
-`src/core/types.ts` wins** — but tell A, because one of them is a bug.
+`src/core/types.ts` wins** — but tell Irfan, because one of them is a bug.
 
-Read this before writing anything. Most of it is facts I verified against live
+Read this before writing anything. Most of it is facts verified against live
 APIs, and several of them contradict what you'd reasonably assume.
 
 ---
 
 ## 1. File ownership — what not to touch
 
+**Team of 2, not 3.** The project was originally split three ways (A/B/C);
+Irfan now covers both the original A role (pipeline spine + comfort routing)
+and the original B role (voice I/O), and the third teammate — now Lija —
+covers what was C. File headers and this table reflect that merge; nothing
+below is legacy naming.
+
 Every source file opens with a header:
 
 ```ts
-// OWNER: B (Voice I/O) — do not edit unless you are the owner.
+// OWNER: Lija (Journey experience) — do not edit unless you are the owner.
 ```
 
 | Owner | Area | Owns |
 | --- | --- | --- |
-| **A** | Pipeline spine + comfort routing | `src/core/**`, `src/providers/{index,types,onemap,fixtures}.ts`, `server/**`, `data/**`, `fixtures/**` |
-| **B** | Voice I/O | `src/audio/**`, `src/providers/{stt,tts}.ts`, `src/phrases/**` |
-| **C** | Journey experience | `src/ui/**`, `src/journey/**`, `src/main.tsx` |
+| **Irfan** | Pipeline spine + comfort routing + Voice I/O | `src/core/**`, `src/providers/**`, `src/audio/**`, `src/phrases/**`, `server/**`, `data/**`, `fixtures/**` |
+| **Lija** | Journey experience | `src/ui/**`, `src/journey/**`, `src/main.tsx` |
 
-**Shared, A-owned, everyone reads:** `src/core/types.ts`, `src/core/geo.ts`,
+**Shared, Irfan-owned, everyone reads:** `src/core/types.ts`, `src/core/geo.ts`,
 `src/providers/types.ts`, `fixtures/demo-route.json`.
 
 Rules:
 
 - **Never** edit a file you don't own. Need a change? Ask the owner.
 - **Never** define a parallel type because the shape you want isn't in
-  `core/types.ts`. Ask A to add it. Two competing `Landmark` types is how this
-  project dies.
+  `core/types.ts`. Ask Irfan to add it. Two competing `Landmark` types is how
+  this project dies.
 - **Never** import a concrete provider class outside `src/providers/index.ts`.
   Depend on the interface. That's the whole point of the swap points.
-- Root configs (`package.json`, `tsconfig.json`, `vite.config.ts`) are A's.
+- Root configs (`package.json`, `tsconfig.json`, `vite.config.ts`) are Irfan's.
 
 ---
 

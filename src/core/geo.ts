@@ -1,4 +1,4 @@
-// OWNER: A (Pipeline spine) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // Shared geometry primitives, built on turf.js (@turf/turf) rather than
 // hand-rolled trig — turf does proper spherical/geodesic math and gives us
@@ -129,7 +129,7 @@ export function sliceLeg(path: readonly LatLng[], from: LatLng, to: LatLng): Lat
 /**
  * Point at `distanceM` along `path` from its start (clamped to the endpoints).
  * This is what a GPS-simulating LocationProvider should use to interpolate
- * the walked position — see journey/location.ts's SimulatedProvider (owner C).
+ * the walked position — see journey/location.ts's SimulatedProvider (owner Lija).
  */
 export function pointAlong(path: readonly LatLng[], distanceM: number): LatLng {
   const first = path[0];

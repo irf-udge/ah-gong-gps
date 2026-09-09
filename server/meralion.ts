@@ -1,4 +1,4 @@
-// OWNER: A (Pipeline spine) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // MERaLiON speech-to-text. A*STAR I²R's Singapore-native audio model: Singlish,
 // Mandarin, Malay, Tamil, Hokkien/Cantonese, and code-switching mid-sentence.

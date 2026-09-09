@@ -1,4 +1,4 @@
-// OWNER: C (Journey experience) — do not edit unless you are the owner.
+// OWNER: Lija (Journey experience) — do not edit unless you are the owner.
 //
 // Shown while capturing and while waiting on MERaLiON. Needs a visible "still
 // working" state — a silent screen reads as broken to a 70-year-old, and the

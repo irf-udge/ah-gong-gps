@@ -1,4 +1,4 @@
-// OWNER: A (Pipeline spine) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // Browser-side clients. These do NOT talk to OneMap directly — they call our
 // own /api proxy, because the OneMap token must never reach the browser.

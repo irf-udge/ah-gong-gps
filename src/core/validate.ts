@@ -1,4 +1,4 @@
-// OWNER: A (Pipeline spine) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // THE SAFETY GATE. A hallucinated landmark leaves a senior standing at a
 // junction looking for a building that does not exist — worse than no app.

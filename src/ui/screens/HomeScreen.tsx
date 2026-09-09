@@ -1,4 +1,4 @@
-// OWNER: C (Journey experience) — do not edit unless you are the owner.
+// OWNER: Lija (Journey experience) — do not edit unless you are the owner.
 //
 // The whole home screen is ONE BIG BUTTON. Nothing else competes with it.
 // The first tap must do three things at once:

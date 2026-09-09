@@ -1,4 +1,4 @@
-// OWNER: C (Journey experience) — do not edit unless you are the owner.
+// OWNER: Lija (Journey experience) — do not edit unless you are the owner.
 //
 // The clarification loop is a FEATURE, not an error path — the brief asks for
 // it to be demoed explicitly. Speak the question aloud in the user's language

@@ -1,4 +1,4 @@
-// OWNER: A (Pipeline spine) — do not edit unless you are the owner.
+// OWNER: Irfan (Pipeline spine + comfort routing + Voice I/O) — do not edit unless you are the owner.
 //
 // Builds the set of real-world things the LLM is allowed to talk about.
 // EVERY landmark here originates from a OneMap response or a baked dataset.
