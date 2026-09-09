@@ -10,6 +10,8 @@
 import type { Lang, Step } from '../../core/types';
 import { ms, zh } from '../../phrases';
 import { RoutePreview } from '../components/RoutePreview';
+import { Icon } from '../components/Icon';
+import { Trail } from '../components/Trail';
 
 export interface JourneyScreenProps {
   lang: Lang;
@@ -27,12 +29,14 @@ export function JourneyScreen({ lang, step, stepCount, onImLost, onRepeat, route
   const book = lang === 'ms' ? ms : zh;
   const lostLabel = lang === 'ms' ? 'Saya sesat' : '我迷路了';
   const currentStep = Math.min(step.index + 1, stepCount);
+  const instructionIcon = step.action === 'arrive' ? 'check' : step.index === 0 ? 'bus' : step.index === 1 ? 'store' : 'coffee';
 
   return (
     <main className="screen" style={{ justifyContent: 'space-between' }}>
-      <div className="trail" aria-label={`${currentStep} of ${stepCount}`}><i className="on" /><i className={currentStep > 1 ? 'on' : ''} /><i className={currentStep > 2 ? 'on' : ''} /></div>
+      <Trail count={stepCount} current={currentStep - 1} />
 
       <section aria-live="polite" style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
+        <div className="instruction-icon"><Icon name={instructionIcon} size={56} /></div>
         <p className="step-text" style={{ margin: 0, width: '100%' }}>
           {step.displayText}
         </p>

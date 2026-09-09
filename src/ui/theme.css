@@ -91,11 +91,18 @@ h1 { font-size: clamp(40px, 11vw, 64px); line-height: 1.05; margin: 8px 0 16px; 
 .location-line, .route-meta, .comfort-note { font-size: var(--fs-lg); margin: 0; }
 .mic-button { width: min(280px, 76vw); aspect-ratio: 1; min-height: 0; align-self: center; border: 0; border-radius: 50%; background: var(--accent); color: white; font: inherit; font-weight: 800; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; cursor: pointer; box-shadow: 0 12px 0 #145444; }
 .mic-button:active { transform: translateY(5px); box-shadow: 0 7px 0 #145444; }
-.mic-symbol { font-size: 70px; line-height: 1; }
+.mic-symbol { display: none; }
+.mic-symbol::before { content: ''; position: absolute; left: 27px; top: 4px; width: 22px; height: 38px; border: 4px solid white; border-radius: 15px; }
+.mic-symbol::after { content: '⌒'; position: absolute; left: 18px; top: 22px; width: 40px; height: 42px; color: white; font-size: 55px; line-height: 24px; transform: rotate(180deg); }
 .quick-destinations { color: var(--fg-muted); font-size: var(--fs-md); text-align: center; }
-.trail { display: flex; gap: 10px; align-items: center; }
-.trail i { width: 12px; height: 12px; border-radius: 50%; background: #c6bba7; display: block; }
-.trail i.on { background: var(--accent); }
+.trail { display: flex; gap: 0; align-items: center; width: 100%; }
+.trail-node { width: 16px; height: 16px; border-radius: 50%; background: var(--bg); border: 3px solid #c6bba7; display: block; flex: 0 0 auto; position: relative; }
+.trail-node:not(:last-child)::after { content: ''; position: absolute; left: 13px; top: 4px; width: calc((100vw - 96px) / 4); max-width: 130px; height: 3px; background: #c6bba7; }
+.trail-node.complete { background: var(--accent); border-color: var(--accent); }
+.trail-node.complete::after { background: var(--accent); }
+.trail-node.current { width: 24px; height: 24px; border: 5px solid var(--accent); background: var(--bg); }
+.instruction-icon, .arrived-icon { width: 112px; height: 112px; border-radius: 30px; display: grid; place-items: center; color: var(--accent); background: #dceae3; flex: 0 0 auto; }
+.arrived-icon { border-radius: 50%; color: white; background: var(--accent); }
 .screen-actions { display: grid; gap: 12px; }
 .btn-link, .btn-secondary { min-height: var(--tap-min); border: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 800; cursor: pointer; }
 .route-preview { position: relative; height: 190px; background: #e7ddc8; border-radius: 22px; overflow: hidden; }
@@ -160,6 +167,9 @@ h1 { font-size: clamp(40px, 11vw, 64px); line-height: 1.05; margin: 8px 0 16px; 
   height: 48px;
   border-radius: 50%;
   background: var(--accent);
+  color: white;
+  display: grid;
+  place-items: center;
   animation: pulse 1.4s ease-in-out infinite;
 }
 

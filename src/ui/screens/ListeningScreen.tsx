@@ -8,6 +8,7 @@
 
 import type { Lang } from '../../core/types';
 import { ms, zh } from '../../phrases';
+import { Icon } from '../components/Icon';
 
 export interface ListeningScreenProps {
   lang: Lang;
@@ -23,7 +24,7 @@ export function ListeningScreen({ lang, thinking, onSayAgain }: ListeningScreenP
     <main className="screen" style={{ justifyContent: 'space-between', alignItems: 'center', textAlign: 'center' }}>
       <div aria-hidden="true" />
       <section aria-live="polite" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--gap)' }}>
-        <div className="pulse-dot" aria-hidden="true" />
+        <div className="pulse-dot" aria-hidden="true"><Icon name="mic" size={42} /></div>
         <p className="step-text" style={{ margin: 0 }}>
           {thinking ? book.thinking : book.listening}
         </p>

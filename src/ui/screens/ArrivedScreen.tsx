@@ -2,6 +2,7 @@
 
 import type { Lang, Place } from '../../core/types';
 import { ms, zh } from '../../phrases';
+import { Icon } from '../components/Icon';
 
 export interface ArrivedScreenProps {
   lang: Lang;
@@ -16,6 +17,7 @@ export function ArrivedScreen({ lang, destination, onHome }: ArrivedScreenProps)
     <main className="screen" style={{ justifyContent: 'space-between', alignItems: 'center', textAlign: 'center' }}>
       <div aria-hidden="true" />
       <section aria-live="polite" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--gap)' }}>
+        <div className="arrived-icon"><Icon name="check" size={62} /></div>
         <p className="step-text" style={{ margin: 0, color: 'var(--ok)' }}>
           {book.arrived}
         </p>
