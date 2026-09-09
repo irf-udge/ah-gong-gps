@@ -6,6 +6,7 @@
 
 import type { LatLng, Position } from '../core/types';
 import type { LocationProvider } from '../providers/types';
+import { pathLengthM, pointAlong } from '../core/geo';
 
 /** Step N fires when the user comes within this many metres of its manoeuvre. */
 export const GEOFENCE_RADIUS_M = 25;
@@ -13,36 +14,99 @@ export const GEOFENCE_RADIUS_M = 25;
 export const GEOFENCE_HYSTERESIS_M = 10;
 /** Average older-adult walking pace. */
 export const SIM_SPEED_MPS = 1.0;
+/** How often playback ticks. 500ms at SIM_SPEED_MPS is ~0.5m/tick — plenty fine-grained against GEOFENCE_RADIUS_M. */
+const TICK_MS = 500;
+/**
+ * Reported accuracy for simulated positions. Small and constant on purpose —
+ * this is a deliberately "good" GPS fix, unlike GeolocationProvider's real
+ * 10-30m, so geofence/hysteresis logic can be developed and demoed without
+ * real-GPS noise in the way. Real noise gets tested against the real thing.
+ */
+const SIM_ACCURACY_M = 5;
 
 /**
  * Replays a route polyline as if walking it. Give it speed control and a
  * jump-to-step so a demo can be driven from the judge view.
  *
- * Use core/geo.ts — nearestOnPolyline and haversineM do the interpolation work.
+ * Uses core/geo.ts's pointAlong for the interpolation — built for exactly
+ * this (see its own doc comment).
+ *
+ * ⚠️ SIM_SPEED_MPS (1 m/s) is REALISTIC walking pace, not stage pace — a 745m
+ * demo route would take ~12 minutes at 1x. That's intentional: setSpeed()
+ * and jumpTo() are the actual on-stage mechanism (per this class's own
+ * original doc), not an afterthought. Default to 1x for dev/testing the
+ * geofence/hysteresis logic at a believable pace; crank it up for the demo.
  */
 export class SimulatedProvider implements LocationProvider {
   readonly name = 'simulated';
 
+  private readonly totalM: number;
+  private speedMps: number;
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private onPosition: ((p: Position) => void) | null = null;
+  /** distanceAlongM at the start of the current playback "leg" (since the last start/jumpTo/setSpeed). */
+  private baseDistanceAlongM = 0;
+  /** Wall-clock time the current leg began — elapsed-since-this, not accumulated ticks, avoids setInterval drift. */
+  private legStartedAtMs = 0;
+
   constructor(
     private readonly path: readonly LatLng[],
-    private readonly speedMps: number = SIM_SPEED_MPS,
-  ) {}
+    speedMps: number = SIM_SPEED_MPS,
+  ) {
+    if (path.length === 0) throw new Error('SimulatedProvider: path must not be empty');
+    this.speedMps = speedMps;
+    this.totalM = pathLengthM(path);
+  }
 
-  start(_onPosition: (p: Position) => void): void {
-    throw new Error('NOT_IMPLEMENTED: SimulatedProvider.start');
+  /** Recomputed fresh from wall-clock time on every call — never accumulated tick-by-tick. */
+  private currentDistanceAlongM(): number {
+    const elapsedS = (Date.now() - this.legStartedAtMs) / 1000;
+    return Math.min(this.totalM, this.baseDistanceAlongM + elapsedS * this.speedMps);
+  }
+
+  private emit(): void {
+    if (!this.onPosition) return;
+    const at = pointAlong(this.path, this.currentDistanceAlongM());
+    this.onPosition({ at, accuracyM: SIM_ACCURACY_M, timestamp: Date.now() });
+  }
+
+  /** Rebase playback so the next tick continues smoothly from right now — call before changing speed or position. */
+  private rebase(): void {
+    this.baseDistanceAlongM = this.currentDistanceAlongM();
+    this.legStartedAtMs = Date.now();
+  }
+
+  start(onPosition: (p: Position) => void): void {
+    this.stop(); // idempotent restart — never stack two timers
+    this.onPosition = onPosition;
+    this.baseDistanceAlongM = 0;
+    this.legStartedAtMs = Date.now();
+    this.emit(); // fire immediately so the UI isn't blank until the first tick
+    this.timer = setInterval(() => this.emit(), TICK_MS);
   }
 
   stop(): void {
-    throw new Error('NOT_IMPLEMENTED: SimulatedProvider.stop');
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+    this.onPosition = null;
   }
 
-  /** Demo control: teleport to a manoeuvre so a step can be re-shown on stage. */
-  jumpTo(_fraction: number): void {
-    throw new Error('NOT_IMPLEMENTED: SimulatedProvider.jumpTo');
+  /**
+   * Demo control: teleport to a manoeuvre so a step can be re-shown on stage.
+   * `fraction` is 0..1 along the WHOLE route (clamped); works whether or not
+   * playback is currently running.
+   */
+  jumpTo(fraction: number): void {
+    const clamped = Math.max(0, Math.min(1, fraction));
+    this.baseDistanceAlongM = clamped * this.totalM;
+    this.legStartedAtMs = Date.now();
+    this.emit();
   }
 
-  setSpeed(_mps: number): void {
-    throw new Error('NOT_IMPLEMENTED: SimulatedProvider.setSpeed');
+  /** Changes pace without a discontinuity — rebases first so position doesn't jump at the moment of the change. */
+  setSpeed(mps: number): void {
+    this.rebase();
+    this.speedMps = mps;
   }
 }
 

@@ -734,3 +734,48 @@ not OneMap) before trusting any of it:
    callers should treat `""` as "nothing to show/speak," not an error.
 
 Both are documented inline in `comfort.ts` at the exact line they were fixed.
+
+### A third bug, found the same way, in `journey/machine.ts`'s `shouldAdvance`
+
+`nearestOnPolyline`'s own doc comment names `journey/machine.ts`'s geofencing
+as its intended consumer, for exactly this reason. The first implementation
+didn't take the hint — it checked raw straight-line distance to the previous
+manoeuvre for hysteresis instead. That passed every unit test written against
+it in isolation, and only broke under an end-to-end test that drove real
+`shouldAdvance()` calls off the actual `SimulatedProvider`.
+
+**The bug:** when two consecutive manoeuvres sit closer together than
+`GEOFENCE_RADIUS_M + GEOFENCE_HYSTERESIS_M` (35 m default), "within RADIUS of
+the target manoeuvre AND beyond RADIUS+HYSTERESIS of the previous one" is
+**geometrically impossible** to satisfy at the same time — by the triangle
+inequality, no point can be that close to one and that far from the other if
+the two are themselves closer together than the sum. Navigation stalled at
+that step **permanently**, not just for one noisy sample. Not a rare edge
+case: a synthetic 6 m gap triggered it on the first real-time run, and the
+real demo route's tightest actual gap (40.8 m straight-line, between two
+manoeuvres `server/onemap.ts`'s `collapseMicroTurns` didn't merge because
+they're above its own 25 m threshold — see § 2.2) sits close enough to the
+35 m danger zone that a different real route easily could fall under it.
+`collapseMicroTurns`' merge threshold and `shouldAdvance`'s hysteresis margin
+are two different numbers for two different reasons; nothing currently
+guarantees the former keeps every gap above the latter.
+
+**The fix:** switched to `nearestOnPolyline`'s `distanceAlongM` — progress
+along the route, not point-to-point distance — for both the radius check and
+the hysteresis margin. Scalar progress values don't have the
+impossible-constraint failure mode: any threshold along a line is always
+reachable by continuing to walk forward, regardless of how physically close
+two manoeuvres are. Re-verified: a 1 m-resolution fine-grained walk over the
+real 5-manoeuvre route (0 skips, strictly increasing, each manoeuvre fires
+exactly once) and the exact 6 m-gap case that used to stall forever both now
+resolve correctly.
+
+**Separately, also worth knowing:** `SimulatedProvider`'s 500 ms tick rate
+times an extreme speed multiplier can skip a fence's radius entirely between
+two samples — confirmed at 400 m/s (~800x realistic walking pace), which was
+originally chosen purely to make a test run fast and inadvertently exposed
+this too. Not fixed, because no real demo scenario needs anywhere near that
+speed: a realistic "sped up for the stage" multiplier (verified safe at
+5x = 5 m/s) has no such risk, and the safe ceiling is roughly
+`2×GEOFENCE_RADIUS_M / (TICK_MS/1000)` ≈ 100 m/s. Don't crank the judge-view
+speed slider past that without re-checking.

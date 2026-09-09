@@ -325,14 +325,60 @@ Owns `src/ui/**`, `src/journey/**`, `src/main.tsx`.
 **You are not blocked by anyone** — build against `fixtures/demo-route.json`.
 
 ### CP1 — the shell and the simulated walk
-- [ ] `journey/location.ts` — **`SimulatedProvider` first.** It's the primary demo
-      path (judges are indoors) and the only way to develop without walking
-      around Ang Mo Kio. Give it speed control + `jumpTo`.
-      ⚠️ `createLocationProvider('simulated', path)` in `providers/index.ts`
-      (Irfan, done) is what constructs this — call it once you have a route, not
-      `new SimulatedProvider(...)` directly, so demo/GPS/manual stay one switch.
-- [ ] `journey/machine.ts` — `reduce()` over `JourneyEvent`
-- [ ] `journey/machine.ts` — `shouldAdvance()`: monotonic, hysteresis, debounced
+- [x] ~~`journey/location.ts` — **`SimulatedProvider` first.**~~ **DONE,
+      LIVE-VERIFIED** (Irfan implemented this on Lija's behalf — see commit).
+      Speed control + `jumpTo`, built on `core/geo.ts`'s `pointAlong`
+      (written for exactly this — see its own doc comment). Progress is
+      recomputed fresh from wall-clock time on every tick, not accumulated
+      tick-by-tick, so it can't drift. 13 assertions against real timers:
+      monotonic advancement, clamping at the path end (an absurd 5000 m/s
+      still lands within 1mm of the endpoint, never overshoots), `jumpTo`
+      teleports immediately including out-of-range clamping, `setSpeed`
+      changes pace with zero position discontinuity, `stop()` is idempotent.
+      ⚠️ `SIM_SPEED_MPS` (1 m/s) is realistic walking pace, not stage pace —
+      a 745m route would take ~12 min at 1x. `setSpeed()`/`jumpTo()` are the
+      actual on-stage mechanism, not an afterthought; crank speed up for the
+      demo, keep it at 1x for developing the geofence logic at a believable
+      pace. See § below for a real constraint this interacts with.
+- [x] ~~`journey/machine.ts` — `reduce()` over `JourneyEvent`~~ **DONE,
+      LIVE-VERIFIED** (Irfan, on Lija's behalf). 36 assertions: the full
+      happy-path flow, the clarify branch, lost/reanchor (including the
+      `event.journey === null` "no re-route needed" case), universal
+      `SAY_AGAIN`/`ERROR` from all 9 phases, and out-of-phase events being
+      safe no-ops rather than crashing. `planning` (in this file's own ASCII
+      diagram) is deliberately never set by `reduce()` — no `JourneyEvent`
+      corresponds to it; by the time `RESOLVED` fires, the caller has already
+      run destination resolution + routing + comfort + landmarks + rewrite,
+      so `resolving` jumps straight to `ready`.
+- [x] ~~`journey/machine.ts` — `shouldAdvance()`: monotonic, hysteresis,
+      debounced~~ **DONE, LIVE-VERIFIED — caught and fixed a real bug** that
+      only an end-to-end test with the actual `SimulatedProvider` surfaced.
+      First version checked raw straight-line distance to the previous
+      manoeuvre for hysteresis; when two consecutive manoeuvres sit closer
+      together than `GEOFENCE_RADIUS_M + GEOFENCE_HYSTERESIS_M` (35m), "within
+      RADIUS of the target AND beyond RADIUS+HYSTERESIS of the previous
+      point" is geometrically **impossible** to satisfy at once (triangle
+      inequality) — navigation stalled at that step **permanently**, not just
+      for one jittery sample. Not a rare edge case either: a synthetic 6m gap
+      exposed it immediately, and the real demo route's tightest real gap
+      (40.8m straight-line) sits close enough to the 35m threshold that a
+      different real route easily could too. Fixed by switching to
+      `nearestOnPolyline`'s `distanceAlongM` — progress along the ROUTE, not
+      point-to-point distance, exactly what that function's own doc comment
+      already named this use case for. Scalar progress values don't have the
+      impossible-constraint failure mode: any threshold along a line is
+      always reachable by continuing to walk forward. Re-verified: a 1m-step
+      fine-grained walk over the real 5-manoeuvre route (0 skips, strictly
+      increasing, each manoeuvre fires exactly once) and the exact 6m-gap
+      case that used to stall forever now resolves correctly.
+      ⚠️ **Real constraint worth knowing, not fixed because no real demo
+      scenario needs it:** `SimulatedProvider`'s tick rate (500ms) times an
+      extreme speed multiplier CAN skip a fence's radius entirely between two
+      samples — reproduced at 400 m/s (~800x realistic pace) on purpose to
+      confirm the limit. A realistic "sped up for the stage" multiplier
+      (verified at 5x = 5 m/s, and by construction safe up to roughly
+      `2×GEOFENCE_RADIUS_M / (TICK_MS/1000)` ≈ 100 m/s) has no such risk.
+      Don't crank the judge-view speed slider past that without re-checking.
 - [ ] `ui/App.tsx` — replace the scaffold placeholder with the screen router
 - [ ] `HomeScreen` — one big button, nothing else
 - [ ] `JourneyScreen` — **ONE step, never a list**
