@@ -27,3 +27,5 @@ Thumbs.db
 coverage/
 *.tsbuildinfo
 *.log
+
+agents.md
