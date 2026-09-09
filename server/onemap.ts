@@ -26,6 +26,7 @@
 
 import type { BBox, Building, LatLng, Place, Poi, PoiKind, RouteCandidate, Manoeuvre, Action } from '../src/core/types';
 import { decodePolyline } from '../src/core/geo';
+import { memoizeAsync } from './cache';
 
 export const ONEMAP_BASE = 'https://www.onemap.gov.sg';
 
@@ -174,6 +175,16 @@ function nilToNull(v: string | undefined | null): string | null {
   return v.trim().toUpperCase() === 'NIL' ? null : v;
 }
 
+/**
+ * Rounds to 5 decimal places (~1.1 m at the equator) — the cache-key
+ * granularity DEVPLAN calls for. Two calls whose coordinates differ by less
+ * than that share a cache entry; OneMap's own routing precision is in the
+ * same ballpark, so this doesn't trade away anything real.
+ */
+function round5(n: number): number {
+  return Math.round(n * 1e5) / 1e5;
+}
+
 function placeId(postal: string | null, address: string): string {
   if (postal) return `postal:${postal}`;
   return `addr:${address.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`;
@@ -194,7 +205,7 @@ interface OneMapSearchResponse {
   results: OneMapSearchResult[];
 }
 
-export async function search(query: string): Promise<Place[]> {
+async function searchUncached(query: string): Promise<Place[]> {
   const body = await oneMapFetch<OneMapSearchResponse>('/api/common/elastic/search', {
     searchVal: query,
     returnGeom: 'Y',
@@ -219,6 +230,9 @@ export async function search(query: string): Promise<Place[]> {
   });
 }
 
+/** LRU-cached — 200 distinct queries (trimmed + lowercased key) before eviction. */
+export const search = memoizeAsync(searchUncached, (query) => query.trim().toLowerCase(), 200);
+
 interface OneMapGeocodeEntry {
   BUILDINGNAME: string;
   BLOCK: string;
@@ -236,7 +250,7 @@ interface OneMapRevGeocodeResponse {
  * `BUILDINGNAME` is the literal string "NIL" for unnamed buildings — most
  * HDB blocks — so fall back to `Block {BLOCK} {ROAD}`.
  */
-export async function reverseGeocode(at: LatLng, bufferM: number): Promise<Building[]> {
+async function reverseGeocodeUncached(at: LatLng, bufferM: number): Promise<Building[]> {
   const body = await oneMapFetch<OneMapRevGeocodeResponse>('/api/public/revgeocode', {
     location: `${at.lat},${at.lng}`,
     buffer: String(bufferM),
@@ -252,6 +266,13 @@ export async function reverseGeocode(at: LatLng, bufferM: number): Promise<Build
     at: { lat: Number(g.LATITUDE), lng: Number(g.LONGITUDE) },
   }));
 }
+
+/** LRU-cached — keyed on coords rounded to 5 dp + bufferM, 500 entries before eviction. */
+export const reverseGeocode = memoizeAsync(
+  reverseGeocodeUncached,
+  (at, bufferM) => `${round5(at.lat)},${round5(at.lng)},${bufferM}`,
+  500,
+);
 
 /**
  * Walk route. VERIFIED response shape (see CONTRACTS.md § 2.2):
@@ -336,7 +357,7 @@ function collapseMicroTurns(raw: Manoeuvre[]): Manoeuvre[] {
  * Walk route. `viaWaypoint` is always null here — comfort.ts sets it when it
  * stitches two of these legs together for a waypoint detour (see mergeLegs).
  */
-export async function walkRoute(from: LatLng, to: LatLng): Promise<RouteCandidate> {
+async function walkRouteUncached(from: LatLng, to: LatLng): Promise<RouteCandidate> {
   const body = await oneMapFetch<OneMapRouteResponse>('/api/public/routingsvc/route', {
     start: `${from.lat},${from.lng}`,
     end: `${to.lat},${to.lng}`,
@@ -354,6 +375,19 @@ export async function walkRoute(from: LatLng, to: LatLng): Promise<RouteCandidat
     viaWaypoint: null,
   };
 }
+
+/**
+ * LRU-cached — keyed on both endpoints' coords rounded to 5 dp, 300 entries
+ * before eviction. This is the highest-value cache of the four: comfort.ts's
+ * generateCandidates fires up to 7 of these per journey (1 direct + 3
+ * waypoints × 2 legs), and rehearsal repeats the same demo corridor dozens
+ * of times.
+ */
+export const walkRoute = memoizeAsync(
+  walkRouteUncached,
+  (from, to) => `${round5(from.lat)},${round5(from.lng)}->${round5(to.lat)},${round5(to.lng)}`,
+  300,
+);
 
 interface OneMapThemeFeature {
   NAME: string;
@@ -398,7 +432,7 @@ function withinBBox(at: LatLng, bbox: BBox): boolean {
  * live, not a fluke (the strait-line distance from the bbox to some hits was
  * tens of km). Always filter client-side; never trust the server's clipping.
  */
-export async function retrieveTheme(queryName: string, bbox: BBox): Promise<Poi[]> {
+async function retrieveThemeUncached(queryName: string, bbox: BBox): Promise<Poi[]> {
   const kind = THEME_TO_KIND[queryName];
   if (!kind) {
     throw new Error(`OneMap retrieveTheme: no PoiKind mapping for theme "${queryName}" — add one to THEME_TO_KIND`);
@@ -418,6 +452,14 @@ export async function retrieveTheme(queryName: string, bbox: BBox): Promise<Poi[
   });
   return pois;
 }
+
+/** LRU-cached — keyed on theme + bbox rounded to 5 dp, 100 entries before eviction. */
+export const retrieveTheme = memoizeAsync(
+  retrieveThemeUncached,
+  (queryName, bbox) =>
+    `${queryName}:${round5(bbox.minLat)},${round5(bbox.minLng)},${round5(bbox.maxLat)},${round5(bbox.maxLng)}`,
+  100,
+);
 
 interface OneMapThemeInfo {
   THEMENAME: string;

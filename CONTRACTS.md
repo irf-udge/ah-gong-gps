@@ -239,8 +239,14 @@ Other things that will bite you:
   still return results *with an error field attached* — a grace period, not a
   guarantee.
 - **429 `Exceeded quota limit` is real.** One journey is ~10 reverse-geocode
-  calls plus up to 8 routing calls. Cache on coordinates rounded to 5 dp —
-  **not yet built**; `server/onemap.ts`'s functions are correct but uncached.
+  calls plus up to 8 routing calls. `server/onemap.ts` caches all four read
+  calls (`search`, `reverseGeocode`, `walkRoute`, `retrieveTheme`) via
+  `server/cache.ts`'s `LruCache`/`memoizeAsync`, keyed on coordinates rounded
+  to 5 dp — live-verified by spying on `global.fetch`: identical calls produce
+  exactly 1 real request, including when 3 fire concurrently (the in-flight
+  *promise* is cached, not just the resolved value, so races share one
+  request). A failed call evicts itself — a 429 is never remembered as "the
+  answer," so the next call retries for real.
 
 ### 2.3 Comfort-layer data (shelter / bench / toilet) — NOT OneMap, NOT data.gov.sg
 

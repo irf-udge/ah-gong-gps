@@ -163,11 +163,21 @@ split by role anymore, just grouped by checkpoint.)
       (recoverable) over a raw `ONEMAP_TOKEN` (isn't) even when both are set.
 - [x] ~~`server/index.ts` — implement the four `/api/onemap/*` proxies.~~ **DONE**
       — thin handlers, 400 on bad/missing params, 502 on a real OneMap failure.
-- [ ] LRU cache keyed on coords rounded to 5 dp — **not optional**, OneMap 429s.
-      **Deliberately NOT built in this pass** — the client/proxy/server chain
-      needed to exist and be correct first. Do this before wiring the real
-      `/api/journey` handler (CP3/CP4), which is ~10 revgeocode + up to 8 route
-      calls per journey — see MERALION_RPM_LIMIT-style budget note above.
+- [x] ~~LRU cache keyed on coords rounded to 5 dp — **not optional**, OneMap
+      429s.~~ **DONE, LIVE-VERIFIED.** New `server/cache.ts`: a small generic
+      `LruCache<K,V>` + `memoizeAsync` (caches the in-flight PROMISE, not just
+      the value, so concurrent identical calls share one upstream request —
+      verified 3 concurrent identical `walkRoute` calls produced exactly 1
+      real network call). A failed call is never cached — it removes itself so
+      the next call retries instead of replaying a 429 forever. Wired onto all
+      four read functions in `server/onemap.ts` (`search`, `reverseGeocode`,
+      `walkRoute`, `retrieveTheme`); `getToken`'s own single-in-flight-promise
+      cache was untouched (already correct, verified still 1 token fetch
+      across a 7-call test run). Confirmed live, by spying on `global.fetch`
+      around real calls (not mocks): identical `walkRoute(from,to)` called
+      twice → 1 network call; a genuinely different `to` → 2; 3 concurrent
+      identical calls → 1. Pure LRU eviction/touch logic has 18 passing
+      assertions run via `tsx` before it was ever wired to a real endpoint.
 - [x] ~~`server/onemap.ts` — `search`, `reverseGeocode`, `walkRoute`,
       `retrieveTheme`, `listAllThemes`.~~ **DONE, LIVE-VERIFIED against the real
       key on 2026-09-09** — all 5 endpoints hit for real, not just typechecked.
