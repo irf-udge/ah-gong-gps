@@ -384,8 +384,57 @@ Non-negotiable, because MERaLiON rejects everything else:
 Size check: 5 s ≈ 160 KB PCM ≈ 213 KB base64. Note `server/index.ts` raises the
 Express JSON limit to 10 MB — the 100 KB default would 413 every request.
 
-**Write a test that asserts the output is really 16 kHz mono.** This is the most
-likely thing to break silently.
+**`src/audio/capture.ts` is implemented and verified — two real bugs found
+live, neither of which a pure unit test would have caught:**
+
+> ### ⚠️ Bug 1 — a worklet with no path to `destination` gets silently starved
+> Connecting `sourceNode → workletNode` and stopping there (so the mic never
+> plays back out loud) seemed reasonable. It's wrong: without SOME path to
+> `audioContext.destination`, the render graph doesn't reliably pull that
+> branch at all on this browser — `process()` either doesn't fire or fires
+> with silence. **Reproduced directly**: fed a real 440Hz test tone through
+> the unconnected graph and got an all-zero WAV back, every time.
+>
+> Fix: route through a `gain=0` node before `destination`. Keeps the graph
+> "live" without the user ever hearing themselves:
+> ```ts
+> const silentGain = audioContext.createGain();
+> silentGain.gain.value = 0;
+> workletNode.connect(silentGain);
+> silentGain.connect(audioContext.destination);
+> ```
+
+> ### ⚠️ Bug 2 — a cold-start race that can eat the first word
+> The FIRST `AudioContext` + `AudioWorklet` + `getUserMedia` chain on a fresh
+> page load has real startup latency (audio device negotiation, worklet
+> module compilation). A recording that starts capturing immediately after
+> `start()` resolves can capture nothing but that startup silence for its
+> first stretch. **Reproduced twice**, independently: identical code, same
+> synthetic test tone, all-zero WAV on a cold page load, correct WAV once
+> the pipeline had already been exercised once on the same page.
+>
+> This matters for real usage, not just the test harness: a senior tapping
+> the button and saying something short ("TTSH") immediately could lose the
+> first word to this if unaddressed.
+>
+> Fix: `start()` doesn't resolve once the graph is wired up — it resolves
+> once the FIRST real buffer has actually arrived from the worklet (bounded
+> to 500ms, so a genuinely broken mic can't hang the caller forever;
+> recording proceeds regardless, this only delays telling the caller "go
+> ahead and speak now"). Re-verified fixed across 3 consecutive fresh-page
+> loads afterward — measured `start()` resolve latency ~140-180ms each time,
+> comfortably inside the 500ms bound.
+
+Both found by testing the **real** module in a real browser (Vite dev-serves
+`.ts` directly — `import('/src/audio/capture.ts')` from the console runs the
+actual shipped code), not by reasoning about the code or trusting `tsc`.
+`encodeWav`/`resample`/`blobToBase64` are pure and unit-tested in Node
+separately (18 assertions — WAV header round-trips to exactly 16000 Hz /
+1 channel / 16-bit, Int16 clamps without wraparound, base64 round-trips
+across the chunk boundary).
+
+⚠️ **Still missing: an automated test in CI**, not just the one-off manual
+verification runs above that found these two bugs.
 
 ---
 

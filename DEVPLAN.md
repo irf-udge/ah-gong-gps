@@ -108,9 +108,30 @@ split by role anymore, just grouped by checkpoint.)
       ⚠️ Confirmed **TTS is `BrowserTts` in BOTH real and demo mode** — not
       `FixtureTts` (that's for headless tests; going silent is the one thing
       a demo kill switch must never do).
-- [ ] `audio/capture.ts` — `createRecorder`, `encodeWav`, `resample`, `blobToBase64`
-      → **16 kHz mono WAV**. Read `CONTRACTS.md` § 4 first; don't use `MediaRecorder`.
-- [ ] **Test asserting the output really is 16 kHz mono.** Most likely silent breakage.
+- [x] ~~`audio/capture.ts` — `createRecorder`, `encodeWav`, `resample`,
+      `blobToBase64`.~~ **DONE, verified two ways.** Pure functions
+      (`encodeWav`, `resample`, `blobToBase64`) unit-tested in Node — 18
+      assertions, including parsing the WAV header back out and confirming
+      **16000 Hz, 1 channel, 16-bit** (the actual contract, not just "didn't
+      throw"), Int16 clamping with no wraparound, and base64 round-tripping
+      correctly across the chunk boundary. `createRecorder()` (real
+      AudioWorklet + getUserMedia) verified live in the browser pane with a
+      synthetic 440Hz test tone standing in for a mic — see CONTRACTS.md § 4
+      for two real bugs this caught that a pure unit test never would have:
+      1. **Silent recordings from an unconnected worklet.** Without a path
+         to `destination`, the render graph didn't pull the capture branch
+         at all — reproduced directly (all-zero WAV from a real input tone),
+         fixed by routing through a `gain=0` node to keep the graph "live"
+         without audible playback.
+      2. **A cold-start race that can eat the first word of an utterance.**
+         The FIRST `AudioContext`+`AudioWorklet`+`getUserMedia` chain on a
+         fresh page has real startup latency; a short recording immediately
+         after `start()` can capture nothing but that startup silence.
+         Reproduced 2x, fixed by having `start()` wait for the first genuine
+         buffer from the worklet (bounded, 500ms max) before resolving,
+         re-verified fixed across 3 consecutive fresh-page runs afterward.
+      ⚠️ Still worth doing: an automated test asserting 16 kHz mono on CI,
+      not just the one-off manual verification run above.
 - [x] ~~`providers/tts.ts` — `BrowserTts.speak/cancel/availableLangs`,
       `primeForUserGesture()`.~~ **DONE, runtime-verified in a real browser**
       (Vite dev-serves `.ts` directly, so `import('/src/providers/tts.ts')`
