@@ -111,10 +111,29 @@ split by role anymore, just grouped by checkpoint.)
 - [ ] `audio/capture.ts` — `createRecorder`, `encodeWav`, `resample`, `blobToBase64`
       → **16 kHz mono WAV**. Read `CONTRACTS.md` § 4 first; don't use `MediaRecorder`.
 - [ ] **Test asserting the output really is 16 kHz mono.** Most likely silent breakage.
-- [ ] `providers/tts.ts` — `BrowserTts.speak/cancel/availableLangs`
-- [ ] `primeForUserGesture()` — iOS won't speak later unless synthesis was first
-      invoked inside a user gesture. Hook it to the big button's first tap.
-- [ ] Handle Chrome's async `getVoices()` — it returns `[]` until `voiceschanged`
+- [x] ~~`providers/tts.ts` — `BrowserTts.speak/cancel/availableLangs`,
+      `primeForUserGesture()`.~~ **DONE, runtime-verified in a real browser**
+      (Vite dev-serves `.ts` directly, so `import('/src/providers/tts.ts')`
+      from the console exercises the real module — not a mock, not just
+      `tsc`). Confirmed live: `speak()` resolves only after genuine
+      completion (measured real elapsed time, not just "didn't throw");
+      a deliberate `cancel()` **resolves** the promise (not reject) and
+      returns almost immediately rather than waiting out the utterance;
+      calling `speak()` twice back-to-back cancels the first cleanly with no
+      stacked/overlapping audio; a language with no matching voice (`ms`, on
+      the machine this ran on) degrades to the plain `.lang` string instead
+      of throwing. `primeForUserGesture()` speaks a silent space
+      synchronously — empty string is silently ignored by some engines.
+      ⚠️ **Voices on that machine were `zh`/`en` only, no `ms`** — this is
+      the browser-pane dev machine, **not** the real demo phone, so it does
+      **not** replace the Phase 0 voice check. It does confirm the matching
+      logic itself is correct against real `voice.lang` data, which was the
+      part actually worth testing in code.
+      Added `waitForVoicesReady()` — resolves once `getVoices()` has real
+      entries (handles Chrome's async `voiceschanged` population, which
+      `availableLangs()` can't itself await since the `TtsProvider` interface
+      requires it stay synchronous). Call this once at app start so
+      `availableLangs()` isn't reporting `[]` on Chrome's first tick.
 - [ ] `phrases/` — review the starter zh/ms strings; **read them aloud**
 
 ### CP2 — real geography + real transcription
