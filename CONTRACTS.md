@@ -328,6 +328,27 @@ Ways need `out geom tags` to get full polylines (not just a center point);
 > The ETL queries it **once**, bakes a static `data/amenities.json`, and commits
 > that. Nothing in the request path calls Overpass at runtime — same pattern as
 > the data.gov.sg plan it replaces.
+>
+> ⚠️ **Overpass's Apache front-end 406s any request with no `User-Agent`
+> header** — verified live, and this is exactly what Node's `fetch`/`https`
+> send by default (curl always sends one, which is why every manual/docs
+> example that anyone would copy "just works"). Confirmed by elimination: a
+> raw `https.request`, identical otherwise, still 406'd with no UA; adding
+> any real UA string fixed it immediately — not content negotiation on
+> Accept/encoding, strictly presence of the header. `data/etl.ts` sends a
+> descriptive one (`ah-gong-gps-etl/1.0 (...)`, plain ASCII only — an em-dash
+> in the header value throws `Cannot convert argument to a ByteString`,
+> also found live on the very next request after adding the header).
+>
+> ⚠️ **Overpass's own bbox filter isn't perfectly tight either** — verified
+> live: 6 of 182 elements for `DEMO_BBOX` had their first geometry point
+> outside the requested box (expected for ways that merely cross the
+> boundary, given "first vertex" is our representative point — not
+> necessarily a bug in Overpass the way OneMap's `extents`/`buffer` are, but
+> the same defensive lesson applies). `data/etl.ts`'s `buildAmenityIndex`
+> clips every Poi to `DEMO_BBOX` client-side before writing the baked file —
+> same "never trust a server's own spatial filter" rule as § 2.2 now, twice
+> confirmed on OneMap and once on Overpass.
 
 **Toilets, too** — `node[amenity=toilets]` came back in the same demo-corridor
 pull, so OSM covers all three missing comfort layers through one source instead

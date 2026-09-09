@@ -75,7 +75,7 @@ These are cheap to do now and expensive to discover late. Do them in parallel.
 
 ---
 
-## 👤 Irfan — Pipeline spine + comfort routing + Voice I/O (85%)
+## 👤 Irfan — Pipeline spine + comfort routing + Voice I/O (90%)
 
 Owns `src/core/**`, `src/providers/**`, `src/audio/**`, `src/phrases/**`,
 `server/**`, `data/**`, `fixtures/**`. (Originally two roles — A: pipeline
@@ -241,7 +241,35 @@ split by role anymore, just grouped by checkpoint.)
         pointed it at the real `localisedName` instead.
 - [x] ~~Run `listAllThemes()` and pick useful layers.~~ **DONE** — see
       `USEFUL_THEMES` in `server/onemap.ts`. Landmarks only; no comfort layers exist.
-- [ ] `data/etl.ts` — query Overpass (4 layers), classify, clip to corridor, bake `data/amenities.json`
+- [x] ~~`data/etl.ts` — query Overpass (4 layers), classify, clip to corridor,
+      bake `data/amenities.json`.~~ **DONE, LIVE-VERIFIED AND RUN FOR REAL** —
+      `data/amenities.json` is committed: 176 POIs (164 shelter, 9 bench, 3
+      toilet) for `DEMO_BBOX`. `buildAmenityIndex()` classifies from tags off
+      the SAME `PEDESTRIAN_HIGHWAYS` list `OVERPASS_QUERIES` itself is built
+      from, so the query and the classifier can't drift apart — confirmed
+      live: 0 of 182 raw elements came back unclassified. 3 of 4 category
+      counts (building_passage=38, bench=9, toilet=3) matched this file's own
+      previously-documented investigation numbers exactly; the 4th
+      (covered-walkway) differs in the expected direction only because this
+      pass adds a pedestrian-only filter the original investigation didn't
+      have (132 vs 198 — narrower on purpose, see CONTRACTS.md § 2.3).
+      Two real bugs found and fixed live, both in CONTRACTS.md § 2.3 now:
+      1. Overpass's Apache front-end 406s any request with no `User-Agent`
+         header — which is exactly what Node's `fetch` sends by default.
+         Found by elimination (curl worked, raw `https.request` with the
+         same missing header didn't); fixed by sending a descriptive UA.
+      2. Overpass's own bbox filter isn't perfectly tight either (6/182
+         elements outside `DEMO_BBOX` on the real corridor) — same lesson as
+         OneMap's `extents`/`buffer`. `buildAmenityIndex` clips client-side.
+      Also ran a full end-to-end integration smoke test with real data before
+      calling this done: real `walkRoute` + the real baked `amenities.json`
+      through `core/comfort.ts`'s `generateCandidates`/`scoreRoute` (4
+      candidates, 18-31% shelter coverage, sensible ranking) AND
+      `core/landmarks.ts`'s `collectLandmarks` (all 5 real manoeuvres got at
+      least one landmark) — confirms this pass's output actually plugs into
+      both of Irfan's earlier CP2/CP3 pieces, not just that the file compiles.
+      New `data/README.md` (referenced by `.gitignore` but never written)
+      documents the baked file's shape and the ODbL attribution obligation.
 - [ ] `providers/stt.ts` — `MeraLionStt` (via `POST /api/understand`)
 - [ ] ⚠️ Use `/v1/audio/transcriptions`. The console's JS sample's path is a 404.
 - [ ] `WebSpeechStt` fallback + `createStt()` racing a 6 s timeout
