@@ -1,7 +1,7 @@
 // OWNER: A (Pipeline spine) — do not edit unless you are the owner.
 //
 // The thin API layer. It exists for exactly one reason: three secrets that must
-// never reach the browser — the MERaLiON key, the OneMap token, the Anthropic
+// never reach the browser — the MERaLiON key, the OneMap token, the Gemini
 // key. Everything else stays client-side.
 //
 // Routes are registered and return 501 until implemented, so `npm run dev`
@@ -34,15 +34,17 @@ app.get('/api/health', (_req, res) => {
     // fastest way for a teammate to diagnose "why is nothing working".
     keys: {
       meralion: Boolean(process.env.MERALION_API_KEY),
-      onemap: Boolean(process.env.ONEMAP_EMAIL && process.env.ONEMAP_PASSWORD),
-      anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
+      // Either auth path counts — a token-only setup is valid too (see
+      // CONTRACTS.md § OneMap), just without auto-refresh on expiry.
+      onemap: Boolean(process.env.ONEMAP_TOKEN || (process.env.ONEMAP_EMAIL && process.env.ONEMAP_PASSWORD)),
+      gemini: Boolean(process.env.GEMINI_API_KEY),
     },
   });
 });
 
 // ─── Pipeline ────────────────────────────────────────────────────────────────
 
-/** Body: UnderstandRequest → UnderstandResponse. MERaLiON ASR + Claude extraction. */
+/** Body: UnderstandRequest → UnderstandResponse. MERaLiON ASR + Gemini extraction. */
 app.post('/api/understand', notImplemented('POST /api/understand'));
 
 /** Body: PlanJourneyRequest → PlanJourneyResponse. Route + comfort + landmarks + rewrite. */

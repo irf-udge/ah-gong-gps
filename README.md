@@ -48,7 +48,7 @@ the entire reason `server/` exists.
 | --- | --- | --- |
 | `MERALION_API_KEY` | `POST https://api.meralion.ai/keys/register`, or **My Key** at <https://meralion.org/api-console> | Speech-to-text. Check your tier with `GET /v1/rate-limit/status` as soon as you have it. |
 | `ONEMAP_EMAIL` / `ONEMAP_PASSWORD` | <https://www.onemap.gov.sg/apidocs/register> | The server exchanges these for a ~3-day token and refreshes on 401. Don't paste a raw token. |
-| `ANTHROPIC_API_KEY` | <https://console.anthropic.com/settings/keys> | Destination extraction + instruction rewrite. |
+| `GEMINI_API_KEY` | <https://aistudio.google.com/apikey> (free tier) | Destination extraction (`gemini-2.5-flash-lite`) + instruction rewrite (`gemini-2.5-flash`). Check real rate limits at <https://aistudio.google.com/rate-limit> once you have a key — Google doesn't publish fixed numbers. |
 
 **Registration for MERaLiON and OneMap is a human step — do it first.** Everything
 downstream is blocked on those two. See `DEVPLAN.md` § Phase 0.
@@ -64,12 +64,12 @@ curl http://localhost:8787/api/health
 ## Architecture in one paragraph
 
 The browser records **16 kHz mono WAV** and posts it to our thin Express layer,
-which forwards to **MERaLiON** for transcription and to **Claude** to pull out
+which forwards to **MERaLiON** for transcription and to **Gemini** to pull out
 the destination phrase. **OneMap** resolves that to coordinates and returns walk
 routes; we generate several route variants ourselves and score them for elderly
 comfort (shelter, benches, toilets, segment length), because *OneMap has no
 accessibility routing API*. We reverse-geocode each turn to collect **real**
-nearby landmarks, hand only those to Claude to rewrite into short spoken steps,
+nearby landmarks, hand only those to Gemini to rewrite into short spoken steps,
 validate the output against the landmark list, and speak it with the browser's
 own speech synthesis as GPS (or a simulated walk) crosses each geofence.
 
@@ -115,7 +115,7 @@ and rehearse on that exact device. Android Chrome is the safe choice.
 ## Project layout
 
 ```
-server/         Express: OneMap proxy + token refresh, MERaLiON proxy, Claude calls
+server/         Express: OneMap proxy + token refresh, MERaLiON proxy, Gemini calls
 src/
   core/         PURE logic — types, geo, comfort scoring, landmarks, validation
   providers/    The five swap points (STT, TTS, routing, places, location)

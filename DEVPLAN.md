@@ -31,7 +31,10 @@ These are cheap to do now and expensive to discover late. Do them in parallel.
 - [x] ~~**A —** Enumerate OneMap themes.~~ **DONE — 165 layers, 11 usable, saved
       to `fixtures/onemap-themes.json`.** Result: **no** shelter / bench / toilet
       / lift / bus-stop layer exists. Themes are a *landmark* source only.
-- [ ] **A —** Anthropic key in `.env`. Verify with `curl localhost:8787/api/health`.
+- [ ] **A —** Gemini key in `.env` (free tier — <https://aistudio.google.com/apikey>).
+      Verify with `curl localhost:8787/api/health`. Then check real rate limits
+      at <https://aistudio.google.com/rate-limit> — Google doesn't publish
+      fixed RPM/RPD numbers, they're account-tier-specific.
 - [ ] **B — ⚠️ Highest-value 10 minutes of the project.** On the **actual demo
       phone**, run `speechSynthesis.getVoices()` and confirm a **`zh-CN`** and a
       **`ms-MY`** voice exist. If Malay is missing, half the demo is dead and we
@@ -67,7 +70,7 @@ These are cheap to do now and expensive to discover late. Do them in parallel.
 | **CP0** | Day 1, hour 2 | A's `core/types.ts`, `core/geo.ts` and `fixtures/demo-route.json` are pushed. **B and C are blocked until this lands** — ship it rough. ✅ *already in the scaffold* |
 | **CP1** | End of Day 1 | **Vertical slice on fixtures.** C's UI + state machine drives B's TTS over A's fixture data; the simulated journey plays end to end and speaks. *A complete demo exists.* |
 | **CP2** | Mid Day 2 | Real MERaLiON transcription (B) and real OneMap routes + landmarks (A). C swaps the fixture route for the live one. |
-| **CP3** | End of Day 2 | Claude rewrite + validation live. Comfort re-ranking and the judge view working. |
+| **CP3** | End of Day 2 | Gemini rewrite + validation live. Comfort re-ranking and the judge view working. |
 | **CP4** | Day 3 | Malay parity, "I'm lost", real GPS, hardening, rehearsal. |
 
 ---
@@ -100,7 +103,15 @@ Owns `src/core/**`, `src/providers/{index,types,onemap,fixtures}.ts`,
 
 ### CP3 — language + validation
 - [ ] `server/meralion.ts` — `transcribe`, `ping`, `rateLimitStatus`
-- [ ] `server/llm.ts` — `extractDestination` (effort `low`), `rewriteToSteps`
+- [x] ~~`server/llm.ts` — `extractDestination`, `rewriteToSteps`.~~ **DONE, on
+      Gemini (free tier), not Anthropic** — see CONTRACTS.md § LLM.
+      `gemini-2.5-flash-lite` for extraction (fast/cheap), `gemini-2.5-flash`
+      for the rewrite (quality-critical). Structured output via
+      `responseJsonSchema` — `buildStepSchema()`'s plain-JSON-Schema output is
+      used directly, no format conversion needed.
+      ⚠️ **Not live-tested against a real key yet** — verified against the
+      installed SDK's actual type definitions, not run end-to-end. Run it for
+      real the moment `GEMINI_API_KEY` exists.
 - [ ] `core/validate.ts` — `buildLexicon`, `validateSteps`, `templateSteps`
 - [ ] Retry-once-then-template fallback wired in
 - [ ] `POST /api/understand`, `/api/journey`, `/api/reanchor`

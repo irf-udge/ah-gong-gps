@@ -14,11 +14,10 @@ const OWNERSHIP = [
 ];
 
 const PHASE_0 = [
-  'Register MERaLiON API key (api.meralion.ai/keys/register)',
-  'Register OneMap account + credentials in .env',
-  'Anthropic API key in .env',
+  'Register MERaLiON API key (api.meralion.ai/keys/register) — done',
+  'Register OneMap account + credentials in .env — done',
+  'Gemini API key in .env (free tier — aistudio.google.com/apikey)',
   'Run speechSynthesis.getVoices() on the DEMO PHONE — confirm zh-CN and ms-MY',
-  'Locate data.gov.sg dataset IDs (covered linkways, toilets); confirm/deny benches',
 ];
 
 export function App() {
