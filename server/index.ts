@@ -409,9 +409,20 @@ app.get(
   }),
 );
 
-app.listen(PORT, () => {
-  console.log(`[api] listening on http://localhost:${PORT}`);
-  if (process.env.DEMO_MODE === '1') {
-    console.log('[api] DEMO_MODE=1 — fixtures only, no outbound calls');
-  }
-});
+// ⚠️ Guarded, not unconditional — added deploying to Vercel. A Vercel
+// serverless function invokes this module's default export directly per
+// request (see api/index.ts); it never calls .listen() itself, and binding
+// a port inside that runtime is pointless at best. `VERCEL` is set
+// automatically in that environment (not something we set ourselves) — see
+// https://vercel.com/docs/environment-variables/system-environment-variables.
+// `npm run dev:api` (no VERCEL var) is unaffected.
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`[api] listening on http://localhost:${PORT}`);
+    if (process.env.DEMO_MODE === '1') {
+      console.log('[api] DEMO_MODE=1 — fixtures only, no outbound calls');
+    }
+  });
+}
+
+export default app;

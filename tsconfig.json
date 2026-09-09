@@ -28,5 +28,5 @@
       "@ui/*": ["src/ui/*"]
     }
   },
-  "include": ["src", "server", "data", "vite.config.ts"]
+  "include": ["src", "server", "data", "api", "vite.config.ts"]
 }
