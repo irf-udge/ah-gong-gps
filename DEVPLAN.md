@@ -734,17 +734,49 @@ visible break.
 ## Definition of done
 
 - [x] `npm run typecheck` clean (verified 2026-09-09, whole project)
-- [ ] `npm test` green — comfort scoring, validation rejecting known-bad output,
-      geofence hysteresis, polyline decode, 16 kHz audio assertion
-      ⚠️ **No test files exist in the repo as of 2026-09-09** (`find . -iname
-      "*.test.ts"` — zero results; `npm test` runs `vitest run` against
-      nothing). Multiple checklist entries elsewhere in this doc describe
-      specific assertion counts for `journey/machine.ts`/`SimulatedProvider`
-      ("36 assertions", "13 assertions") as already done — those runs may
-      have genuinely happened at some point, but nothing durable was
-      committed. Flagging rather than silently writing a test suite under
-      this session's scope (implementing Lija's remaining screens/providers)
-      — worth a real pass before this checkbox is honest.
+- [x] ~~`npm test` green — comfort scoring, validation rejecting known-bad
+      output, geofence hysteresis, polyline decode, 16 kHz audio
+      assertion~~ **DONE, 2026-09-10** — 76 assertions across 5 files,
+      colocated as `*.test.ts` next to the code they cover (no test config
+      needed; vitest's default include pattern already matched):
+      - `core/comfort.test.ts` (16) — `scoreRoute` against synthetic
+        sheltered/exposed routes, `extraDistanceM` clamping at 0,
+        `describeScore`'s phrase selection including the exact
+        "shortestWalk shouldn't fire alongside a real clause" regression
+        this file's own doc describes, `rankRoutes` ordering.
+      - `core/validate.test.ts` (18) — the actual point of this file:
+        confirmed `validateSteps` REJECTS a hallucinated `landmark_id`, an
+        invented English proper noun in `zh` text, a step-count mismatch,
+        and empty spoken text, while accepting real landmark names kept
+        verbatim and the generic allowlist. The `ms` language-dependent
+        scan needed two attempts — the first version asserted this file's
+        own doc example ("Berjalan ke Pasar Blok 226H.") passes generically,
+        but it only passes in the real system because "Pasar"/"Blok"/"226H"
+        are literally that journey's landmark name, in the lexicon — a
+        lexicon hit short-circuits the ms capitalization heuristic
+        entirely. Fixed by giving the test a matching landmark, same as a
+        real journey would have.
+      - `journey/machine.test.ts` (13) — `reduce()`'s happy path,
+        universal escape hatches (SAY_AGAIN/ERROR/RESET), the
+        `clarifying`→`RESOLVED` path added this week, and out-of-phase
+        no-ops; `shouldAdvance`'s radius/hysteresis boundaries plus the
+        exact tight-gap regression this file's header names by name (two
+        manoeuvres closer together than RADIUS+HYSTERESIS, walked
+        1m-per-tick end to end, confirming it never stalls).
+      - `core/geo.test.ts` (18) — `decodePolyline` against the canonical
+        Google polyline-algorithm reference vector (not derived from our
+        own code), `haversineM`/`bearingDeg` against independently
+        computable real-world values, `pointAlong`/`nearestOnPolyline`
+        clamping and on-segment snapping, `poisWithinRadius`,
+        `sampleShelterCoverage`, `boundsOf`.
+      - `audio/capture.test.ts` (11) — `encodeWav`'s RIFF/WAVE header
+        fields (16 kHz, mono, 16-bit PCM, correct chunk sizes), PCM sample
+        clamping at the ±1 boundary, `resample`'s identity/empty/
+        downsampling cases.
+      `createRecorder()` itself (real `getUserMedia`/`AudioContext`/
+      `AudioWorklet`) and `generateCandidates()` (needs a live
+      `RoutingProvider`) are still live-verified only, not unit tested —
+      both need real browser/network state that isn't worth mocking here.
 - [ ] `DEMO_MODE=1` completes button → arrival with no network
 - [ ] Live run on the demo corridor; every `landmark_id` resolves to a real record
 - [ ] Rewrite run 20× on the demo route, **zero** validation failures
