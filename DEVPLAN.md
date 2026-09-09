@@ -75,7 +75,7 @@ These are cheap to do now and expensive to discover late. Do them in parallel.
 
 ---
 
-## 👤 Irfan — Pipeline spine + comfort routing + Voice I/O (75%)
+## 👤 Irfan — Pipeline spine + comfort routing + Voice I/O (80%)
 
 Owns `src/core/**`, `src/providers/**`, `src/audio/**`, `src/phrases/**`,
 `server/**`, `data/**`, `fixtures/**`. (Originally two roles — A: pipeline
@@ -158,11 +158,44 @@ split by role anymore, just grouped by checkpoint.)
 - [ ] `phrases/` — review the starter zh/ms strings; **read them aloud**
 
 ### CP2 — real geography + real transcription
-- [ ] `server/onemap.ts` — token fetch + refresh (single in-flight promise on 401)
-- [ ] `server/index.ts` — implement the four `/api/onemap/*` proxies
-- [ ] LRU cache keyed on coords rounded to 5 dp — **not optional**, OneMap 429s
-- [ ] `server/onemap.ts` — `search`, `reverseGeocode`, `walkRoute`, `retrieveTheme`
-- [ ] `providers/onemap.ts` — browser-side clients hitting our proxy
+- [x] ~~`server/onemap.ts` — token fetch + refresh (single in-flight promise on
+      401).~~ **DONE, LIVE-VERIFIED.** Prefers `ONEMAP_EMAIL`+`ONEMAP_PASSWORD`
+      (recoverable) over a raw `ONEMAP_TOKEN` (isn't) even when both are set.
+- [x] ~~`server/index.ts` — implement the four `/api/onemap/*` proxies.~~ **DONE**
+      — thin handlers, 400 on bad/missing params, 502 on a real OneMap failure.
+- [ ] LRU cache keyed on coords rounded to 5 dp — **not optional**, OneMap 429s.
+      **Deliberately NOT built in this pass** — the client/proxy/server chain
+      needed to exist and be correct first. Do this before wiring the real
+      `/api/journey` handler (CP3/CP4), which is ~10 revgeocode + up to 8 route
+      calls per journey — see MERALION_RPM_LIMIT-style budget note above.
+- [x] ~~`server/onemap.ts` — `search`, `reverseGeocode`, `walkRoute`,
+      `retrieveTheme`, `listAllThemes`.~~ **DONE, LIVE-VERIFIED against the real
+      key on 2026-09-09** — all 5 endpoints hit for real, not just typechecked.
+      Found and fixed 4 real gotchas beyond what CONTRACTS.md already knew:
+      1. **"No value" is the literal string `"NIL"`**, not null/absent, on
+         both `search` and `revgeocode` — confirmed against Blk 226 Ang Mo Kio
+         Ave 1, a genuinely unnamed HDB block.
+      2. **`route_instructions[i]`'s distance field is off-by-one from what our
+         `Manoeuvre.distanceM` means.** OneMap's distance on instruction `i` is
+         the walk FROM that point TO the next one; ours is FROM the previous
+         manoeuvre TO this one. Verified against a real route (Head's raw
+         distance was 39, not 0) — get this backwards and every turn's lead-in
+         distance is silently wrong, with no type error to catch it.
+      3. **Collapsed micro-turns, as CONTRACTS.md's stub comment demanded.** A
+         real 745 m route came back as 7 instructions with 3 turns inside the
+         first 77 m; `collapseMicroTurns` (25 m threshold) folds those into the
+         following turn — 7 raw instructions → 5 spoken-worthy manoeuvres.
+      4. **`retrieveTheme`'s field schema differs PER THEME**, and coordinate
+         encoding differs by feature `Type` (`Point`→`"lat,lng"`,
+         `Line`→`"[[lng,lat],...]"`, GeoJSON order). Worse: `extents` isn't
+         reliably honoured server-side — `park_connector_loop` returned 784
+         features nationwide for a bbox covering one estate. Added a
+         client-side bbox filter; never trust the server's clipping again.
+      Extended `PoiKind` (core/types.ts) with `hospital`/`pharmacy`/`polyclinic`
+      — 3 of the 8 `USEFUL_THEMES` had no matching kind before this.
+- [x] ~~`providers/onemap.ts` — browser-side clients hitting our proxy.~~
+      **DONE, LIVE-VERIFIED in a real browser** through the full chain:
+      `OneMapPlaces`/`OneMapRouting` → Vite dev proxy → Express → real OneMap.
 - [ ] `core/landmarks.ts` — `collectLandmarks`, `rankForManoeuvre`, `localisedName`
 - [x] ~~Run `listAllThemes()` and pick useful layers.~~ **DONE** — see
       `USEFUL_THEMES` in `server/onemap.ts`. Landmarks only; no comfort layers exist.

@@ -10,6 +10,7 @@
 import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
+import { search, reverseGeocode, walkRoute, retrieveTheme } from './onemap';
 
 const app = express();
 const PORT = Number(process.env.API_PORT ?? 8787);
@@ -58,10 +59,78 @@ app.post('/api/reanchor', notImplemented('POST /api/reanchor'));
 // OneMap returns `429 Exceeded quota limit` and a single journey is ~10
 // reverse-geocode calls plus up to 8 routing calls.
 
-app.get('/api/onemap/search', notImplemented('GET /api/onemap/search'));
-app.get('/api/onemap/revgeocode', notImplemented('GET /api/onemap/revgeocode'));
-app.get('/api/onemap/route', notImplemented('GET /api/onemap/route'));
-app.get('/api/onemap/theme', notImplemented('GET /api/onemap/theme'));
+/**
+ * Wraps a handler so a thrown error becomes a JSON error response instead of
+ * an unhandled rejection. A validation error (bad/missing query param) throws
+ * with a `status` of 400; anything else — a real OneMap failure — is a 502,
+ * since the fault is upstream, not with the caller's request.
+ */
+function onemapRoute(handler: (req: express.Request) => Promise<unknown>) {
+  return async (req: express.Request, res: express.Response) => {
+    try {
+      res.json(await handler(req));
+    } catch (err) {
+      const status = err instanceof Error && 'status' in err ? Number((err as { status: unknown }).status) : 502;
+      const errorCode = status === 400 ? 'bad_request' : 'onemap_upstream_failed';
+      res.status(status).json({ error: errorCode, detail: err instanceof Error ? err.message : String(err) });
+    }
+  };
+}
+
+/** Parses a required numeric query param; throws (→ 400 via onemapRoute) if missing or not a number. */
+function requireNumber(req: express.Request, key: string): number {
+  const raw = req.query[key];
+  const n = Number(raw);
+  if (typeof raw !== 'string' || raw === '' || !Number.isFinite(n)) {
+    throw Object.assign(new Error(`missing or invalid query param "${key}"`), { status: 400 });
+  }
+  return n;
+}
+
+app.get(
+  '/api/onemap/search',
+  onemapRoute(async (req) => {
+    const q = req.query.q;
+    if (typeof q !== 'string' || q === '') throw Object.assign(new Error('missing query param "q"'), { status: 400 });
+    return search(q);
+  }),
+);
+
+app.get(
+  '/api/onemap/revgeocode',
+  onemapRoute(async (req) => {
+    const lat = requireNumber(req, 'lat');
+    const lng = requireNumber(req, 'lng');
+    const bufferM = requireNumber(req, 'bufferM');
+    return reverseGeocode({ lat, lng }, bufferM);
+  }),
+);
+
+app.get(
+  '/api/onemap/route',
+  onemapRoute(async (req) => {
+    const fromLat = requireNumber(req, 'fromLat');
+    const fromLng = requireNumber(req, 'fromLng');
+    const toLat = requireNumber(req, 'toLat');
+    const toLng = requireNumber(req, 'toLng');
+    return walkRoute({ lat: fromLat, lng: fromLng }, { lat: toLat, lng: toLng });
+  }),
+);
+
+app.get(
+  '/api/onemap/theme',
+  onemapRoute(async (req) => {
+    const queryName = req.query.queryName;
+    if (typeof queryName !== 'string' || queryName === '') {
+      throw Object.assign(new Error('missing query param "queryName"'), { status: 400 });
+    }
+    const minLat = requireNumber(req, 'minLat');
+    const minLng = requireNumber(req, 'minLng');
+    const maxLat = requireNumber(req, 'maxLat');
+    const maxLng = requireNumber(req, 'maxLng');
+    return retrieveTheme(queryName, { minLat, minLng, maxLat, maxLng });
+  }),
+);
 
 app.listen(PORT, () => {
   console.log(`[api] listening on http://localhost:${PORT}`);

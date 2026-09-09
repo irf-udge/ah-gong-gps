@@ -187,18 +187,60 @@ map over it blindly. Features carry `NAME`, `ADDRESSBUILDINGNAME`,
 Other things that will bite you:
 
 - **Reverse geocode returns BUILDINGS, not POIs.** Max 10 within the buffer
-  (≤500 m for buildings, 20 m for roads). `BUILDINGNAME` is null/absent for
-  unnamed buildings — i.e. most HDB blocks — so fall back to `Block {BLOCK} {ROAD}`.
-  Expect *"Block 226"* far more often than *"the coffee shop"*. Write the demo
-  script around what the data actually returns.
+  (≤500 m for buildings, 20 m for roads). `BUILDINGNAME` is the literal string
+  `"NIL"` for unnamed buildings — i.e. most HDB blocks — so fall back to
+  `Block {BLOCK} {ROAD}`. (Corrected 2026-09-09: this used to say "null/absent"
+  — live-verified against Blk 226 Ang Mo Kio Ave 1, a real unnamed block, the
+  field comes back as the *string* `"NIL"`, not missing. `search`'s `BUILDING`
+  field does the same. Check for the literal string — `null`/`undefined`
+  checks alone will miss it.) Expect *"Block 226"* far more often than *"the
+  coffee shop"*. Write the demo script around what the data actually returns.
 - **Walk routes return `route_geometry` as an encoded polyline.** Decode with
   `core/geo.decodePolyline` (precision 5). `pt` returns a totally different
   OTP-shaped payload — we don't use it.
+- **`route_instructions[i]`'s distance field is off-by-one from what our
+  `Manoeuvre.distanceM` means.** OneMap's `[2]` on instruction `i` is the walk
+  distance FROM this instruction's point TO the NEXT one. Our `Manoeuvre.distanceM`
+  is documented as "distance from the previous manoeuvre" — the opposite
+  direction. Verified against a real 745 m route: the first instruction
+  ("Head") carried distance 39, not 0, and only summed to `total_distance`
+  under the "distance to next" reading. `server/onemap.ts`'s `parseManoeuvres`
+  shifts by one to correct this (`manoeuvre[i].distanceM = raw[i-1][2]`). Get
+  this backwards in a new call site and every turn's lead-in distance is
+  silently wrong — no type error will catch it.
+- **Collapse micro-turns before anything speaks them.** The same 745 m route
+  had 3 turns inside its first 77 m (16 m, 20 m, 41 m apart) — 7 raw
+  instructions for a 12-minute walk. `server/onemap.ts`'s `collapseMicroTurns`
+  (25 m threshold, never merges away the first or last manoeuvre) folds these
+  into the following turn: 7 → 5. If you're consuming `route_instructions`
+  from anywhere else, do the same — don't hand a senior 7 spoken turns.
+- **`retrieveTheme`'s feature schema varies PER THEME**, verified across all 8
+  `USEFUL_THEMES` live: only `NAME`, `Type`, `LatLng` are common to every one.
+  `ADDRESSBUILDINGNAME`/`ADDRESSBLOCKHOUSENUMBER` (what an earlier pass of this
+  doc claimed) only exist on some themes (e.g. `ssot_hawkercentres`) — others
+  (`eldercare`) use `ADDRESSPOSTALCODE`/`ADDRESSSTREETNAME` instead, and
+  `nationalparks` has neither. Don't destructure theme-specific fields without
+  checking which theme you're in.
+- **`LatLng`'s coordinate encoding depends on feature `Type`.** `Point` →
+  `"lat,lng"` (plain pair, lat first — same as everywhere else in this app).
+  `Line` → `"[[lng,lat],[lng,lat],...]"` (JSON-array string, **GeoJSON lng/lat
+  order** — reversed from Point). Verified on `park_connector_loop`. We only
+  need a pin per landmark, so `parseThemeLatLng` takes the line's first vertex.
+- **`extents` (the bbox param) is NOT reliably honoured server-side.**
+  `park_connector_loop` returned **784 features nationwide** for a bbox
+  covering one estate — verified live, not a fluke (hits included park
+  connectors tens of km away, e.g. "Southern Ridges Loop" near Mount Faber).
+  `server/onemap.ts`'s `retrieveTheme` now filters every feature client-side
+  against the requested bbox after the fact. **Never trust OneMap's own
+  `extents` clipping again** — this cost `park_connector_loop` effectively all
+  of its AMK-corridor results once filtered correctly, which is the honest
+  answer, not a bug: most of what it returned was never actually in Ang Mo Kio.
 - **Search now needs a token too** (docs banner). Unauthenticated calls currently
   still return results *with an error field attached* — a grace period, not a
   guarantee.
 - **429 `Exceeded quota limit` is real.** One journey is ~10 reverse-geocode
-  calls plus up to 8 routing calls. Cache on coordinates rounded to 5 dp.
+  calls plus up to 8 routing calls. Cache on coordinates rounded to 5 dp —
+  **not yet built**; `server/onemap.ts`'s functions are correct but uncached.
 
 ### 2.3 Comfort-layer data (shelter / bench / toilet) — NOT OneMap, NOT data.gov.sg
 
@@ -448,6 +490,12 @@ Full definitions in `src/core/types.ts`. The ones that matter most:
   score and rank them.
 - **`ComfortScore`** — shelter coverage, rest points, toilets, longest
   unsheltered run, extra distance, stairs.
+- **`PoiKind`** — extended 2026-09-09 with `hospital`/`pharmacy`/`polyclinic`.
+  3 of the 8 curated `USEFUL_THEMES` (`moh_hospitals`, `registered_pharmacy`,
+  `vaccination_polyclinics`) had no matching kind before this — `retrieveTheme`
+  needs one for every theme it's asked to map, and throws rather than
+  mis-tagging an unmapped one. Same pattern as `Poi.path` below: extend the
+  shared type when a real, live-verified need shows up, don't work around it.
 - **`Step`** — what the senior hears. `landmarkId` **must** exist in the
   journey's `landmarks`.
 - **`JourneyState`** — phase, journey, current step index.

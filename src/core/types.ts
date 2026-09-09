@@ -64,7 +64,10 @@ export type PoiKind =
   | 'hawker'
   | 'community'
   | 'park'
-  | 'eldercare';
+  | 'eldercare'
+  | 'hospital'
+  | 'pharmacy'
+  | 'polyclinic';
 
 /**
  * A point (or, for shelter, a line) from a baked dataset (data/) or a OneMap
