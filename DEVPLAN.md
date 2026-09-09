@@ -75,7 +75,7 @@ These are cheap to do now and expensive to discover late. Do them in parallel.
 
 ---
 
-## 👤 Irfan — Pipeline spine + comfort routing + Voice I/O (97%)
+## 👤 Irfan — Pipeline spine + comfort routing + Voice I/O (99%)
 
 Owns `src/core/**`, `src/providers/**`, `src/audio/**`, `src/phrases/**`,
 `server/**`, `data/**`, `fixtures/**`. (Originally two roles — A: pipeline
@@ -270,16 +270,67 @@ split by role anymore, just grouped by checkpoint.)
       both of Irfan's earlier CP2/CP3 pieces, not just that the file compiles.
       New `data/README.md` (referenced by `.gitignore` but never written)
       documents the baked file's shape and the ODbL attribution obligation.
-- [ ] `providers/stt.ts` — `MeraLionStt` (via `POST /api/understand`)
-- [ ] ⚠️ Use `/v1/audio/transcriptions`. The console's JS sample's path is a 404.
-- [ ] `WebSpeechStt` fallback + `createStt()` racing a 6 s timeout
-- [ ] **Fail over on `429` too, not just timeout** — the free tier is 5 req/min
-      and testing at busy moments could trip it
-- [ ] **Keep `FixtureStt` as your default while building UI.** We have ~299
-      MERaLiON requests for the entire month, shared with Lija. Point at the
-      real API only when specifically testing transcription.
-- [ ] `requestMicPermission()` on first tap, so the OS prompt lands at a moment
-      the user understands
+- [x] ~~`providers/stt.ts` — `MeraLionStt` (via `POST /api/understand`)~~
+      **DONE, LIVE-VERIFIED end to end** — real browser client, through
+      Vite's proxy, through the real server, to real MERaLiON, one deliberate
+      spend. `MeraLionStt.transcribe()` deliberately returns only
+      `{text, confidence}` even though `/api/understand`'s response carries
+      more (`destination`, `clarify`) — `SttProvider` is scoped to "just
+      transcribe"; whoever wires up the real (non-demo) orchestration should
+      call `/api/understand` directly for the combined result rather than
+      double-calling through this provider. Documented inline.
+      ⚠️ **`SttProvider.transcribe()` gained an `at: LatLng` parameter** — not
+      in the original stub signature. `/api/understand` requires it
+      (nearby-buildings context for Gemini's extraction) and nothing else
+      told `transcribe()` where the user was. `FixtureStt`/`WebSpeechStt`
+      just ignore it.
+- [x] ⚠️ ~~Use `/v1/audio/transcriptions`~~ — this trap lives in
+      `server/meralion.ts`, not here; this provider never calls MERaLiON
+      directly, only our own server.
+- [x] ~~`WebSpeechStt` fallback + `createStt()` racing a 6 s timeout~~ **DONE,
+      LIVE-VERIFIED — caught two real bugs, both fixed:**
+      1. **`WebSpeechStt.isSupported()`'s `'x' in globalThis` check is
+         fragile** — verified live it reports `true` for a global that's
+         merely a present KEY (e.g. explicitly set to `undefined`), not one
+         that's an actually-usable constructor. Fixed to check
+         `typeof === 'function'` instead (via the same constructor-resolving
+         helper `transcribe()` already needed).
+      2. **A second, unwrapped failure could escape `createStt()`'s
+         fallback entirely.** The auto-failover class only wrapped the case
+         where `WebSpeechStt.isSupported()` said no upfront — if it said yes
+         but the actual attempt then failed too (permission denied, no
+         speech heard), that raw error (e.g.
+         `"WebSpeechStt error: not-allowed"`) propagated straight to the
+         caller instead of the friendly "please say it again" message.
+         Fixed by wrapping the fallback attempt in its own try/catch, so
+         EVERY exit path is either a real success or the same friendly
+         message — never a raw error a 70-year-old would see.
+      Verified live: MERaLiON success (no failover), a 429, and a network
+      error each correctly triggering fallback; WebSpeech succeeding after a
+      MERaLiON failure; both failing together producing the friendly
+      message; and the real `MERALION_TIMEOUT_MS` (6000ms) timing out at
+      ~6104ms measured, not hanging forever.
+- [x] ~~**Fail over on `429` too, not just timeout**~~ **DONE** —
+      `MeraLionStt.transcribe()` throws a tagged error on a real 429 response
+      (`status: 429` on the Error object); `AutoFailoverStt` doesn't
+      special-case it beyond that — ANY meralion failure (429, timeout,
+      network error) triggers the same fallback path, verified for all three
+      kinds live.
+      ⚠️ **The "5 req/min" figure here was also stale** — see
+      `server/meralion.ts`'s CP3 entry above: live-verified actual limit is
+      200 req/min. `MERALION_RPM_LIMIT` in this file corrected to match.
+- [ ] **Keep `FixtureStt` as your default while building UI.** ~299 MERaLiON
+      requests for the entire month, shared with the team. Point at the real
+      API only when specifically testing transcription. (Guidance, not a
+      code task — nothing to check off, just don't forget it once the real
+      orchestration is wired into the UI.)
+- [ ] `requestMicPermission()` on first tap, so the OS prompt lands at a
+      moment the user understands. **Partially done** — `ui/App.tsx`'s demo
+      flow already calls it best-effort on tap (see its own CP1 entry above),
+      but that's the fixture path, which doesn't actually record or call a
+      real `SttProvider`. Wiring the REAL record-then-`stt.transcribe()` flow
+      into the UI is still open — this file (`providers/stt.ts`) is ready for
+      it, nothing here is blocking it.
 
 ### CP3 — language + validation
 - [x] ~~`server/meralion.ts` — `transcribe`, `ping`, `rateLimitStatus`~~

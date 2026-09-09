@@ -104,7 +104,7 @@ export class FixtureRouting implements RoutingProvider {
 export class FixtureStt implements SttProvider {
   readonly name = 'fixture';
 
-  async transcribe(_wav: Blob, lang: Lang): Promise<Transcription> {
+  async transcribe(_wav: Blob, lang: Lang, _at: LatLng): Promise<Transcription> {
     return { text: DEMO_FIXTURE.transcript[demoLang(lang)], confidence: 1 };
   }
 }

@@ -135,6 +135,43 @@ Check remaining headroom any time — this now works, verified, not a guess:
 curl -s -H "Authorization: Bearer $MERALION_API_KEY" https://api.meralion.ai/v1/rate-limit/status
 ```
 
+#### `src/providers/stt.ts` — two real bugs, both fixed
+
+Building `MeraLionStt`/`WebSpeechStt`/`createStt()` and testing the actual
+fallback chain live (mocking `fetch` and `SpeechRecognition` to force every
+failure combination, not just the happy path) caught two bugs a pure
+typecheck couldn't:
+
+1. **`WebSpeechStt.isSupported()`'s `'x' in globalThis` check is fragile.**
+   `in` tests whether a KEY exists, not whether it holds a real, usable
+   constructor — verified live that setting the global to `undefined`
+   (rather than leaving it absent) still reports `true`. That let
+   `createStt()`'s fallback logic attempt a `WebSpeechStt.transcribe()` call
+   that could never succeed. Fixed by checking
+   `typeof ctor === 'function'` instead (via the same constructor-resolving
+   helper `transcribe()` already needed internally).
+2. **A second failure could still escape unwrapped.** The auto-failover
+   logic only wrapped the case where `isSupported()` said no *before*
+   attempting Web Speech — if it said yes but the actual attempt then also
+   failed (permission denied, no speech heard, or simply bug #1 above before
+   it was fixed), that raw error — e.g. `"WebSpeechStt error: not-allowed"` —
+   propagated straight to the caller instead of a friendly message. Fixed by
+   wrapping the fallback attempt in its own `try`/`catch`: every exit path
+   from `createStt()`'s provider is now either a real success or the same
+   `"Could not hear you (…) — please say it again."` message, never a raw
+   internal error a senior would see.
+
+Verified live, not just reasoned about: MERaLiON success (no failover
+attempted), a 429, and a simulated network error each correctly triggering
+fallback; Web Speech succeeding after a MERaLiON failure (full recovery, not
+just "it fails gracefully"); both failing together producing the friendly
+message; and the real `MERALION_TIMEOUT_MS` (6000 ms) actually timing out at
+~6104 ms measured — not hanging forever, and not firing early. Also ran a
+real, undeliberate-mock request from `MeraLionStt` through the actual browser
+→ Vite dev proxy → real server → real MERaLiON, confirming the whole new
+client-side path works end to end, not just the server side (already
+verified separately when the route handlers were built).
+
 ### 2.2 OneMap — geocoding & routing
 
 All endpoints need `Authorization`. Token lives ~3 days; refresh on 401 with a
@@ -393,7 +430,7 @@ The five swap points, from `src/providers/types.ts`. Every one has a real
 implementation and a `Fixture*` one; `DEMO_MODE=1` swaps the whole set.
 
 ```ts
-interface SttProvider     { name: string; transcribe(wav: Blob, lang: Lang): Promise<Transcription> }
+interface SttProvider     { name: string; transcribe(wav: Blob, lang: Lang, at: LatLng): Promise<Transcription> }
 interface TtsProvider     { name: string; speak(text, lang): Promise<void>; cancel(): void
                             primeForUserGesture(): void; availableLangs(): Lang[] }
 interface RoutingProvider { name: string; walkRoute(from: LatLng, to: LatLng): Promise<RouteCandidate> }
@@ -403,9 +440,19 @@ interface PlaceProvider   { name: string; search(q): Promise<Place[]>
 interface LocationProvider{ name: string; start(cb: (p: Position) => void): void; stop(): void }
 ```
 
+> ⚠️ `SttProvider.transcribe()`'s `at: LatLng` param isn't in the original
+> design — added wiring up `MeraLionStt`, which calls `POST /api/understand`
+> and that endpoint requires `at` (nearby-buildings context for Gemini's
+> destination extraction). `WebSpeechStt`/`FixtureStt` just ignore it.
+> `MeraLionStt.transcribe()` itself deliberately returns only
+> `{text, confidence}`, discarding `/api/understand`'s `destination`/
+> `clarify` fields — `SttProvider` is scoped to "just transcribe"; the real
+> (non-demo) orchestration layer should call `/api/understand` directly for
+> the combined result, not double-call through this provider.
+
 | Interface | Real | Fallback | Fixture |
 | --- | --- | --- | --- |
-| `SttProvider` | `MeraLionStt` | `WebSpeechStt` (6 s timeout) | `FixtureStt` |
+| `SttProvider` | `MeraLionStt` — **DONE, LIVE-VERIFIED**, real round trip through the browser, Vite's proxy, the real server, to real MERaLiON | `WebSpeechStt` (6 s timeout) — **DONE, LIVE-VERIFIED**, two real bugs found and fixed, see § 2.1 below | `FixtureStt` |
 | `TtsProvider` | `BrowserTts` | — | `FixtureTts` (headless tests only — see below) |
 | `RoutingProvider` | `OneMapRouting` | — | `FixtureRouting` |
 | `PlaceProvider` | `OneMapPlaces` | — | `FixturePlaces` |

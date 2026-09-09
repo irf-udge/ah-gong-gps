@@ -27,10 +27,16 @@ export interface Transcription {
  *
  * `wav` MUST be 16 kHz mono — MERaLiON rejects anything else. Producing it is
  * src/audio/capture.ts's job, not the provider's.
+ *
+ * ⚠️ `at` isn't in the original stub signature — added wiring up
+ * `MeraLionStt`, which calls `POST /api/understand` and that endpoint
+ * requires `UnderstandRequest.at` (nearby-buildings context for Gemini's
+ * destination extraction — see server/index.ts). Nothing else needed it, so
+ * `WebSpeechStt`/`FixtureStt` just ignore it.
  */
 export interface SttProvider {
   readonly name: string;
-  transcribe(wav: Blob, lang: Lang): Promise<Transcription>;
+  transcribe(wav: Blob, lang: Lang, at: LatLng): Promise<Transcription>;
 }
 
 // ─── Speech out ──────────────────────────────────────────────────────────────
