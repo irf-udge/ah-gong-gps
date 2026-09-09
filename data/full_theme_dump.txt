@@ -1,0 +1,179 @@
+TOTAL: 165
+--- Community (39) ---
+    communityclubs                       Community Clubs
+    constituencyoffices                  Constituency Offices
+    otherpanetworks                      Other PA Networks
+    waterventure                         Water Ventures
+    spf_rlc                              Singapore Police Force Red Light Cameras
+    hdb_car_park_information             HDB Car Park Information
+    as_shangrila_core                    Singapore Police Force - 32nd ASEAN Summit Shangri-La Hotel Special Zone
+    as_istana_core                       Singapore Police Force - 32nd ASEAN Summit Istana Special Zone
+    as_istana_buffer                     Singapore Police Force - 32nd ASEAN Summit Istana Special Event Area
+    as_shangrila_buffer                  Singapore Police Force - 32nd ASEAN Summit Shangri-La Hotel Special Event Area
+    strengtheningfam                     Strengthening Families Programme
+    communityclubpassionwave             Community Club / PAssion WaVe Outlet
+    ndp_22_sea                           Singapore Police Force - National Day Parade (NDP) 2022 Special Event Area
+    ndp_22_sz                            Singapore Police Force - National Day Parade (NDP) 2022 Special Zone
+    restricted_areaspoly                 Areas within Restricted Areas
+    residentscommittee                   Residents' Committee / Residents' Network Centre
+    deliverywaitingbay_bicycle           Delivery waiting bay (bicycles)
+    spf_dtrls                            Singapore Police Force Digital Traffic Red Light Cameras
+    spf_fsc                              Singapore Police Force Fixed Speed Cameras
+    danger_areas                         Areas within Danger Areas
+    boundary_5km                         Areas within 5km of aerodromes
+    parkingstandardszone                 LTA Parking Standards Zone
+    remittance                           Locations of Remittance
+    lta_road_enforcement_camera          LTA Road Camera
+    deliverywaitingbay_motorcycle        Delivery waiting bay (motorcycles)
+    spf_msc                              Singapore Police Force Mobile Speed Cameras
+    spf_pslc                             Singapore Police Force Police Speed Laser Cameras
+    tra_poly                             Areas within a Temporary Restricted Area
+    prohibited_areas                     Areas within Prohibited Areas
+    ndp_23_sea                           Singapore Police Force - National Day Parade (NDP) 2023 Special Event Area
+    ndp_23_sz                            Singapore Police Force - National Day Parade (NDP) 2023 Special Zone
+    mce_kpe_speed_camera                 MCE KPE Speed Camera
+    infocommaccess                       Infocomm Accessibility
+    liquor_control_zones                 Liquor Control Zone(s) proclaimed under Liquor Control (Supply and Consumption) Act 2015
+    sso                                  Social Service Offices
+    silverinfocomm                       Silver Infocomm
+    cdcouncils                           Community Devt Councils
+    mha_uav_2015                         Protected Area under Section 7 Air Navigation Act
+    moneychanger                         Locations of Money Changer
+--- Culture (5) ---
+    libraries                            Libraries
+    museum                               Museums
+    theatre                              Theatre
+    historicsites                        Historic Sites
+    monuments                            Monuments
+--- Education (3) ---
+    cpe_pei_premises                     Private Education Institutions
+    pei_location                         Private Education Institution Location
+    cetcentres                           CET Centres
+--- Emergency Preparedness (4) ---
+    civildefencepublicshelters           Civil Defence Public Shelters
+    scdfhq                               SCDF HQs and Training Establishments
+    firestation                          Fire Stations
+    aed_locations                        Public Access AEDs
+--- Employment (1) ---
+    wdaservicepoints                     CareersConnect
+--- Environment (22) ---
+    afterdeathfacilities                 After Death Facilities
+    wastedisposalsite                    Waste Disposal Site
+    pub_waterlevelsensors                PUB Water Level Sensors
+    areas_hap                            Areas with High Aedes Population
+    heritagetrees                        Heritage Trees
+    ura_parking_lot                      URA Parking Lot
+    activecemeteries                     Active Cemeteries
+    nparks_parks                         NParks Parks and Nature Reserves
+    reusechannels                        Channels for Donation, Resale and Repair
+    zika_cluster                         Zika Cluster
+    track_record_ils_feb18               Certificate Grading Info of Licensed Eating Establishments
+    ewaste                               E-waste Recycling
+    ssot_hawkercentres                   Hawker Centres
+    abcwatersconstruction                ABC Waters Construction
+    dsa                                  Designated Smoking Areas
+    columbaria                           Dedicated Columbaria
+    crematoria                           Crematoria
+    ias                                  Inland Ash Scattering Gardens
+    wolbachia_release_sites              Wolbachia Release Sites
+    abcwaterscompleted                   ABC Waters Completed
+    nsz                                  No Smoking Zones
+    funeralparlours                      Funeral Parlours
+--- Family (4) ---
+    voluntarywelfareorgs                 Social Service Agencies
+    studentcare                          Student Care Services
+    eldercare                            Eldercare Services
+    family                               Family Services
+--- Government Offices (8) ---
+    pcg_offshore_islands                 Singapore Police Force - PCG Offshore Islands
+    spf_establishments                   Singapore Police Force Establishments
+    spf_establishments_2018              Singapore Police Force Establishments (2018)
+    paheadquarters                       PA Headquarters
+    cpfb_location                        CPF Service Centres
+    neaoffices                           NEA Offices
+    npc_boundary                         Singapore Police Force NPC Boundary
+    hdb_branches                         HDB Branches
+--- Health (13) ---
+    healthiercaterers                    Healthier Caterers
+    blood_bank                           Bloodbank locations
+    registered_pharmacy                  Retail pharmacy locations
+    moh_hospitals                        Hospitals
+    quitcentres                          Quit Centres
+    dengue_cluster                       Dengue Clusters
+    chikungunya_cluster                  Chikungunya Cluster
+    dfc_gtp                              Dementia Friendly Go-To-Points (GTPs)
+    cervicalscreen                       Cervical Screening Centre
+    breastscreen                         Breast Screening Centre
+    healthierdining                      Healthier Eateries
+    votg_phpc                            Vaccination_PHPC
+    vaccination_polyclinics              Vaccination_Polyclinics
+--- National Service (4) ---
+    hsgb_ippt                            IPPT In Your Community
+    hsgb_napfa                           NAPFA Test Centre
+    hsgb_fcc                             Fitness and Conditioning Centres (FCC)
+    hsgb_safra                           SAFRA Centres
+--- Recreation (13) ---
+    pcn_access_points                    PCN Access Points
+    bicyclerack                          LTA Bicycle Rack
+    hotels                               Hotels
+    comm_use_sites                       Community Use Sites
+    drone_no_fly                         Prohibited Drone flying areas at NParks Nature Reserves, Nature Parks and Gardens
+    ura_popspoints_pt                    Privately Owned Public Spaces (POPS)
+    cyclingpath                          Cycling Path Network
+    cib_gardens                          Community in Bloom (CIB)
+    park_connector_loop                  Park Connector Loop
+    tourism                              Tourist Attractions
+    wireless_hotspots                    Wireless HotSpots
+    nationalparks                        Parks
+    nr_gaz_2005                          Nature Reserves Gazette 2005
+--- Sports (3) ---
+    sportsg_sport_facilities             SportSG Sport Facilities
+    sportsg_dus_sport_facilities         SportSG DUS Sport Facilities
+    sportsg_sip_facilities               SportSG SIP Facilities
+--- null (46) ---
+    customs_tabacco_product              Licensed Premises for Liquors & Tabacco Products
+    heritageroadgreenbuffer              Heritage Road Green Buffers
+    nparks_bbq_pit                       NParks BBQ Pits
+    customs_tradenet_service             TradeNet Service Centres & Certified Vendors
+    tree_conservation_area               Tree Conservation Area
+    ed_bdy_2009                          Electoral Boundary 2006
+    eld2015                              Electoral Boundary 2015
+    tb_msis_gaz_ed                       Electoral Boundary 2011
+    singapore_cmhabitats_20102011        Singapore Coastal Habitats Map from High Resolution Satellite Imagery (2010/2011)
+    roadattributeline_speedlimits        Road Speed Limit
+    lta_rdproj_unclass                   LTA Road Construction Project (Unclassified)
+    customs_motor_vehicle                Licensed Premises for Motor Vehicles
+    jtc_luse_bp_bpw                      JTC Business Park Land
+    hdb_active_blk_p                     HDB Existing Building
+    customs_petroleum_product            Licensed premises for petroleum products
+    ndp_24_sz                            Singapore Police Force - National Day Parade (NDP) 2024 Special Zone
+    nparks_tracks                        NParks Tracks
+    liquor_control_zone                  Liquor Control Zone under Public Order (Additional Temporary Measures) Act 2014
+    hdbroadsunderconstruction            HDB Roads Under Construction
+    nparks_building                      NParks Buildings
+    ura_project_public_pl                URA Project (PUBLIC)
+    nparks_uc_parks                      Under-Construction Parks
+    watersupplyconstruction              WaterSupplyConstruction
+    hdbcyclingunderconstruction          HDB Cycling Paths Under-Construction
+    sewerageconstruction                 SewerageConstruction
+    nparks_uc_pc                         Under-Construction Park Connectors
+    deliverywaitingbay_svy               Delivery waiting bay
+    ndp_24_sea                           Singapore Police Force - National Day Parade (NDP) 2024 Special Event Area
+    customs_zero_gst_goods               Licensed Premises for Zero GST Goods
+    ltarailprj_uc_unclass                LTA Rail Project Under Construction (Unclassified)
+    nparks_carpark_lots                  NParks Car Park Lots
+    ndp_25_sea                           Singapore Police Force - National Day Parade (NDP) 2025 Special Event Area
+    ndp_25_sz                            Singapore Police Force - National Day Parade (NDP) 2025 Special Zone
+    maxwell_fnb_map                      Maxwell Chambers F&B map
+    ndp_26_sea                           Singapore Police Force - National Day Parade (NDP) 2026 Special Event Area
+    ndp_26_sz                            Singapore Police Force - National Day Parade (NDP) 2026 Special Zone
+    underconstruction_facilities         Under-Construction Park Facilities
+    commmediationctr                     Community Mediation
+    jtc_estate_name                      JTC Estate Name Boundary
+    jtc_tol                              JTC Temporary Occupation License
+    hdbnrpunderconstruction              HDB Neighbourhood Renewal Programme Proposed and Under-Construction (NRP)
+    hdbbuildingunderconstruction         HDB Public Housing Building Under-Construction
+    drainageconstruction                 Drainage Construction
+    hdbluppropunderconstruction          HDB Lift Upgrading Programme Proposed and Under-Construction (LUP)
+    bca_estate_upg_prog_osp              Estate Upgrading Programme (EUP) Works for OSP
+    bombshelters                         Bomb shelters

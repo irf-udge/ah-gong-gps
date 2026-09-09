@@ -39,13 +39,20 @@ These are cheap to do now and expensive to discover late. Do them in parallel.
 - [ ] **C —** Pick the demo device and confirm HTTPS tunnelling works on it
       (`cloudflared tunnel --url http://localhost:5173`). Mic and GPS need a
       secure context.
-- [ ] **A — now the biggest open risk.** Find data.gov.sg dataset IDs for covered
-      linkways and public toilets; paste into `data/etl.ts`. **Confirm or deny
-      benches.** If benches don't exist, drop the rest term from scoring *and*
-      the pitch.
-      > Since OneMap Themes turned out to carry **none** of the comfort layers,
-      > `data/etl.ts` is now the *only* source of shelter/bench/toilet data —
-      > i.e. the only thing standing between us and a working differentiator.
+- [x] ~~**A —** Find covered-linkway/bench/toilet data.~~ **RESOLVED.**
+      data.gov.sg confirmed dead a second time — drove the actual search UI:
+      "covered linkway" (43 results, all false positives on the word
+      "covered"), "linkway" (0 results), "bench" (10 results, all
+      "benchmark"). OneMap Themes re-checked exhaustively too (all 165, by eye,
+      not just grep) — still nothing.
+      **Replacement found: OpenStreetMap via the Overpass API** (free, no key).
+      Verified live: 14,980 covered ways + 1,300 benches **nationwide**; in the
+      AMK demo corridor alone, 198 covered ways, 38 building-passage linkways,
+      9 benches, 3 toilets. One source now covers all three missing layers.
+      See `CONTRACTS.md` § 2.3 and `data/etl.ts` (query shape + the pedestrian-
+      filtering gotcha — `covered=yes` also matches covered bus driveways).
+      ⚠️ **New: ODbL attribution required** — add "© OpenStreetMap contributors"
+      somewhere visible (About screen or the deck's sources slide).
 
 > **Already decided, don't re-litigate:** Green Man+ is out (outdated dataset).
 > Family live-view is out (needs real backend state). Pre-generated TTS is out
@@ -89,7 +96,7 @@ Owns `src/core/**`, `src/providers/{index,types,onemap,fixtures}.ts`,
 - [ ] `core/landmarks.ts` — `collectLandmarks`, `rankForManoeuvre`, `localisedName`
 - [x] ~~Run `listAllThemes()` and pick useful layers.~~ **DONE** — see
       `USEFUL_THEMES` in `server/onemap.ts`. Landmarks only; no comfort layers exist.
-- [ ] `data/etl.ts` — download, clip to corridor, bake the amenity index
+- [ ] `data/etl.ts` — query Overpass (4 layers), classify, clip to corridor, bake `data/amenities.json`
 
 ### CP3 — language + validation
 - [ ] `server/meralion.ts` — `transcribe`, `ping`, `rateLimitStatus`

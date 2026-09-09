@@ -195,20 +195,15 @@ Other things that will bite you:
 - **429 `Exceeded quota limit` is real.** One journey is ~10 reverse-geocode
   calls plus up to 8 routing calls. Cache on coordinates rounded to 5 dp.
 
-### 2.3 data.gov.sg — amenity datasets
+### 2.3 Comfort-layer data (shelter / bench / toilet) — NOT OneMap, NOT data.gov.sg
 
-Datasets are **CSV/GeoJSON file downloads**, not a queryable geo API. Its dataset
-search endpoint ignores `query` entirely (I probed it — identical results for
-every term). Dataset IDs must be found by hand on the website.
+**Both dead ends, both fully re-verified. The real source is OpenStreetMap.**
 
-Working metadata endpoint:
-`GET https://api-production.data.gov.sg/v2/public/api/datasets/{id}/metadata`
-
-So: download once, clip to the demo corridor, commit the slice, load into memory.
-Nothing in the request path touches data.gov.sg. See `data/etl.ts`.
-
-**Layer status — now resolved.** I enumerated all **165** OneMap themes with the
-live token and keyword-checked every one:
+**OneMap Themes — re-checked a second time, exhaustively.** Pulled a fresh
+`getAllThemesInfo` and this time read **all 165 themes grouped by category**
+by eye (not just a keyword grep) — every Community/Culture/Education/Emergency/
+Environment/Family/Health/Recreation/Sports/uncategorised entry. Result
+unchanged and now doubly confirmed:
 
 | Layer | In OneMap Themes? |
 |---|---|
@@ -220,26 +215,72 @@ live token and keyword-checked every one:
 | bus stops | ❌ absent |
 | eldercare | ✅ `eldercare` |
 
-> ### ⚠️ The brief is wrong here too
-> It claims Themes includes *"barrier-free facilities, lifts, eldercare services"*.
-> **Only eldercare exists.** OneMap Themes supplies **none** of the comfort layers.
->
-> Therefore **`data/etl.ts` is on the critical path, not a nice-to-have** — every
-> shelter, bench, toilet and lift must come from data.gov.sg / LTA DataMall.
+> The brief claims Themes has *"barrier-free facilities, lifts, eldercare services."*
+> **Only eldercare is real.** Full 165-theme dump: `data/full_theme_dump.txt`
+> (kept as evidence); curated usable subset: `fixtures/onemap-themes.json`.
 
-What Themes *is* good for is **landmarks**, and it's good at it. The 11 usable
-layers are saved in `fixtures/onemap-themes.json`. The best for our user:
-`ssot_hawkercentres`, `communityclubs`, `eldercare`, `moh_hospitals`,
-`registered_pharmacy`, `nationalparks`, `park_connector_loop`.
+**data.gov.sg — confirmed dead via the actual search UI**, not just the
+dataset-list API (which ignores `query` entirely and was the wrong endpoint to
+judge this by). Drove the real search box:
+
+| Search term | Results | Verdict |
+|---|---|---|
+| `covered linkway` | 43 | All false positives on the word *"covered"* — "Collective Agreements Certified by Type of Workers **Covered**", vaccine coverage stats. Zero infrastructure datasets. |
+| `linkway` | 0 | *"No results found."* |
+| `bench` | 10 | All **"bench**mark**"** — IMDA Infocomm rankings, SGX turnover. Zero park-furniture datasets. |
+
+**Confirmed: neither exists on either platform, under any term tried.**
+
+#### The replacement: OpenStreetMap via the Overpass API
+
+Free, no key, no registration, queryable by bounding box — verified live:
+
+```
+Nationwide (out count, whole-SG bbox):
+  way[covered=yes][highway=*]  → 14,980 ways
+  node[amenity=bench]          →  1,300 nodes
+Demo corridor alone (Ang Mo Kio, DEMO_BBOX):
+  198 covered ways · 38 building-passage linkways · 9 benches · 3 toilets
+  (one toilet tagged wheelchair=yes)
+```
+
+That's not a fluke of one contributor mapping our specific corridor — the
+nationwide count proves it's genuine island-wide coverage.
+
+Endpoint: `POST https://overpass-api.de/api/interpreter`, body `data=<Overpass QL>`.
+Ways need `out geom tags` to get full polylines (not just a center point);
+`out center tags` is enough for nodes. See `data/etl.ts` for the exact queries.
+
+> ⚠️ **`covered=yes` is not automatically pedestrian.** A verified sample hit
+> was *"Ang Mo Kio Bus Interchange"* — `highway=service`, `bus=yes`, `access=no`:
+> a covered **bus driveway**, not a walkway. Filter `highway` to
+> `footway|path|pedestrian|corridor|steps`; treat `tunnel=building_passage`
+> as its own always-pedestrian query. Both are already split out in `data/etl.ts`.
+>
+> ⚠️ **ODbL attribution is required.** Unlike OneMap's Singapore Open Data
+> Licence, OSM data is ODbL — the app needs a visible *"© OpenStreetMap
+> contributors"* credit (About screen, footer, or the pitch deck's sources
+> slide). New obligation neither of the other two sources carried.
+>
+> ⚠️ **Build-time only.** `overpass-api.de` is a shared community server.
+> The ETL queries it **once**, bakes a static `data/amenities.json`, and commits
+> that. Nothing in the request path calls Overpass at runtime — same pattern as
+> the data.gov.sg plan it replaces.
+
+**Toilets, too** — `node[amenity=toilets]` came back in the same demo-corridor
+pull, so OSM covers all three missing comfort layers through one source instead
+of stitching together OneMap + data.gov.sg + LTA DataMall.
+
+What OneMap Themes *is* still good for is **landmarks**. The 11 usable layers
+are saved in `fixtures/onemap-themes.json`. Best for our user: `ssot_hawkercentres`,
+`communityclubs`, `eldercare`, `moh_hospitals`, `registered_pharmacy`,
+`nationalparks`, `park_connector_loop`.
 
 Verified real AMK landmarks from `ssot_hawkercentres`: *Teck Ghee Square (Blk 409)*,
 *Chong Boon Market and Food Centre (Blk 453A)*, *Cheng San Market (Blk 527)*.
 
-> **Green Man+ is deliberately excluded** — the dataset is outdated. Not in the
-> scoring, not in the pitch.
->
-> If Phase 0 shows benches don't exist either, **drop the rest term from scoring
-> AND from the slides**. Do not claim a layer we don't have.
+> **Green Man+ is still excluded** — the dataset is outdated. Not in the
+> scoring, not in the pitch. (Unrelated to this OSM finding; carried over.)
 
 ---
 
