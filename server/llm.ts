@@ -40,7 +40,7 @@
 // in Google AI Studio" — check yours at https://aistudio.google.com/rate-limit.
 
 import { GoogleGenAI } from '@google/genai';
-import type { Action, Lang, Landmark, Manoeuvre, Place, Step } from '../src/core/types';
+import type { Action, Lang, Landmark, Manoeuvre, Place, Step, Violation } from '../src/core/types';
 import { localisedName } from '../src/core/landmarks';
 
 export const EXTRACTION_MODEL = 'gemini-3.5-flash-lite';
@@ -221,11 +221,17 @@ interface RawStep {
  *
  * The caller MUST pass the result through core/validate.validateSteps before
  * anything is spoken. On a second failure, fall back to validate.templateSteps.
+ *
+ * `feedback` is CONTRACTS.md's "retry once with the violations fed back" —
+ * pass `validateSteps()`'s violations from the first attempt and this appends
+ * them to the prompt as concrete corrections instead of just repeating the
+ * same instructions and hoping for a different result.
  */
 export async function rewriteToSteps(
   manoeuvres: readonly Manoeuvre[],
   landmarks: readonly Landmark[],
   lang: Lang,
+  feedback?: readonly Violation[],
 ): Promise<Step[]> {
   const ai = getClient();
   const schema = buildStepSchema(landmarks);
@@ -239,6 +245,14 @@ export async function rewriteToSteps(
   const manoeuvreLines = manoeuvres
     .map((m) => `- index=${m.index} action=${m.action} at=${m.at.lat.toFixed(5)},${m.at.lng.toFixed(5)}`)
     .join('\n');
+
+  const feedbackLines = feedback?.length
+    ? [
+        '',
+        'Your previous attempt had these problems — fix ALL of them this time:',
+        ...feedback.map((v) => `- ${v.kind}${v.stepIndex !== undefined ? ` (step ${v.stepIndex})` : ''}: ${v.detail}`),
+      ].join('\n')
+    : '';
 
   const prompt = [
     `Write walking directions in ${LANG_NAMES[lang]} for an elderly Singaporean, one short sentence per manoeuvre.`,
@@ -255,6 +269,7 @@ export async function rewriteToSteps(
     '',
     'Manoeuvres to narrate, in order:',
     manoeuvreLines,
+    feedbackLines,
   ].join('\n');
 
   const response = await ai.models.generateContent({

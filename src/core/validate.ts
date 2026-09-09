@@ -154,8 +154,14 @@ function clauseSeparator(lang: Lang): string {
   return lang === 'zh' ? '，' : ', ';
 }
 
-/** No-op on CJK text (no case concept); on Latin text, undoes sentence-initial capitalization for mid-sentence reuse. */
-function lowercaseFirst(s: string): string {
+/**
+ * No-op on CJK text (no case concept); on Latin text, undoes sentence-initial
+ * capitalization for mid-sentence reuse. Exported — server/index.ts's
+ * `/api/reanchor` composes `recalculating` (also written capitalized, for
+ * the same "also spoken standalone" reason as `arrived` below) as a second
+ * clause and needs the identical fix.
+ */
+export function lowercaseFirst(s: string): string {
   return s.length === 0 ? s : s[0]!.toLowerCase() + s.slice(1);
 }
 

@@ -79,23 +79,38 @@ Also available: `/v1/audio/translations`, `/summarization`, `/emotion_detection`
 **MERaLiON has no text-to-speech endpoint.** Speech *out* is the browser's
 `speechSynthesis`. Don't go looking.
 
-#### Measured quota — our actual key, free tier
+⚠️ **Silent/non-speech audio returns the literal string `"(nospeech)\n"`** —
+verified live with a synthetic tone, not real speech. Not an empty string, not
+an error. `server/index.ts`'s `/api/understand` treats it the same as "didn't
+catch that" (skips straight to the `notUnderstood` clarify response) rather
+than wasting a Gemini extraction call parsing it as if it were real words.
 
-Verified by live calls, not guessed:
+#### Measured quota — our actual key, free tier
 
 | | Limit | Notes |
 | --- | --- | --- |
-| Rate | **5 requests/minute** | Three devs testing at once will 429 each other |
+| Rate | **200 requests/minute** | Corrected 2026-09-10 — see below |
 | Requests | 1 000 / month | Not the binding limit |
 | Tokens | 100 000 / month | **This is what binds** |
 | Audio | 3 600 s / month | Not the binding limit |
 
-**Cost is a flat ~334 tokens per request, independent of clip length** — a 1.5 s
-and a 6.0 s clip both billed 330 prompt tokens. So the budget is *per request*,
-not per second:
+> ⚠️ **The "5 requests/minute" figure this doc used to have was wrong.** Live
+> `GET /v1/rate-limit/status` on our real key returned
+> `{ limit: 200, remaining: 200, window: "1 minute" }`; one real
+> `transcribe()` call afterward dropped `remaining` to 199, confirming the
+> endpoint tracks actual consumption, not a static ceiling that happened to
+> read wrong. **Actual limit: 200 req/min.** Don't take either number on
+> faith going forward — call `rateLimitStatus()` (`server/meralion.ts`) and
+> read what it says; whatever tier this key is on may change again.
 
-> ## 🔴 ~299 transcription requests for the whole month, shared across all three of us.
-> Roughly 100 per person, for three days of development **and** the demo.
+**Cost is a flat ~334 tokens per request, independent of clip length** — a 1.5 s
+and a 6.0 s clip both billed 330 prompt tokens. This part re-measured cleanly:
+the same live call above billed 330 prompt + 7 completion = 337 total tokens.
+So the token budget is *per request*, not per second:
+
+> ## 🔴 ~299 transcription requests for the whole month, shared across the team.
+> The monthly *token* cap is what actually binds — the rate limit above is
+> comfortably high and was never the real constraint.
 
 Latency is good — **0.6–1.0 s** round trip — so this is a budget problem, not a
 speed problem. Consequences, all mandatory:
@@ -103,16 +118,21 @@ speed problem. Consequences, all mandatory:
 - **`FixtureStt` is the development default.** Never point at MERaLiON during
   routine UI work; a hot-reload loop that re-transcribes will drain the month in
   an afternoon.
-- **Cache transcriptions by audio hash.** Testing the same phrase twenty times
-  should cost one request.
-- **Handle `429` explicitly**, not just timeouts — at 5 rpm you will hit it.
-  Fail over to `WebSpeechStt`. This is load-shedding, not a nicety.
-- Budget ~20 requests for rehearsal plus the live demo. That part is fine.
+- **Cache transcriptions by audio hash.** `server/index.ts` does this —
+  `transcribeMemoized`, keyed on a SHA-256 of the base64 audio via
+  `server/cache.ts`'s `memoizeAsync`. Testing the same phrase twenty times
+  costs one request, verified live (a repeat call returned in 68ms, no second
+  MERaLiON round trip).
+- **Handle `429` explicitly**, not just timeouts. Fail over to `WebSpeechStt`.
+  This is load-shedding, not a nicety.
+- Budget spend deliberately: this session spent exactly one real
+  `transcribe()` call verifying the implementation works, plus whatever
+  `rateLimitStatus()`/`ping()` calls (both free, no quota cost).
 
-Check remaining headroom any time:
+Check remaining headroom any time — this now works, verified, not a guess:
 
 ```bash
-curl -s -H "Authorization: Bearer $MERALION_API_KEY" https://api.meralion.ai/keys/usage
+curl -s -H "Authorization: Bearer $MERALION_API_KEY" https://api.meralion.ai/v1/rate-limit/status
 ```
 
 ### 2.2 OneMap — geocoding & routing
@@ -539,6 +559,14 @@ Full definitions in `src/core/types.ts`. The ones that matter most:
 - **`Step`** — what the senior hears. `landmarkId` **must** exist in the
   journey's `landmarks`.
 - **`JourneyState`** — phase, journey, current step index.
+- **`PlanJourneyRequest`/`ReanchorRequest`** — changed 2026-09-10, wiring up
+  `server/index.ts`'s route handlers. Both used to carry a bare id
+  (`destinationId`/`journeyId: string`) for the server to "look up" — but
+  there is no server-side journey/place store, and OneMap has no "get by id"
+  endpoint, so a bare id had nothing to resolve against. Both now carry the
+  full object instead (`destination: Place` on each) — the client already
+  has it (from `UnderstandResponse.destination` or a `ClarifyScreen.onPick`),
+  so it's passed through rather than the server trying to resurrect one.
 
 ---
 
@@ -652,11 +680,64 @@ On failure: retry once with the violations fed back. On the second failure, use
 `validate.templateSteps()` — safe by construction, and now actually verified
 to be (see above), not just asserted to be.
 
+> This whole retry chain is now real, not just designed: `server/llm.ts`'s
+> `rewriteToSteps()` takes an optional 4th `feedback?: readonly Violation[]`
+> parameter (not in the original stub signature — there was nowhere to put
+> the violations before), which appends them to the prompt as concrete
+> corrections on retry. `server/index.ts`'s `planJourneyCore` wires the whole
+> chain: `rewriteToSteps` → `validateSteps` → (on failure) `rewriteToSteps`
+> with feedback → `validateSteps` → (on a second failure) `templateSteps`.
+> Live-verified end to end via `POST /api/journey` — the real Gemini call
+> passed validation on the first attempt, so the retry path itself is
+> implemented and exercised by `core/validate.ts`'s own deliberate-failure
+> tests, not yet by a real Gemini failure. See § below for the full run.
+
 > ## 🚨 THE ONE RULE
 > **Nothing is ever spoken that has not passed `validateSteps()`.**
 >
 > A hallucinated landmark leaves a senior standing at a junction looking for a
 > building that doesn't exist. That is worse than no app at all.
+
+### Route handlers — live-verified, not fixtures
+
+`server/index.ts`'s three pipeline endpoints are real, not 501 stubs, and
+have all been run against the actual live services (MERaLiON, OneMap,
+Gemini) — not `DEMO_MODE`, not mocks.
+
+**`POST /api/journey`** (real origin → AMK Hub, `zh`): one HTTP call exercised
+the entire pipeline — `generateCandidates` (4 real OneMap-routed candidates)
+→ `scoreRoute`/`rankRoutes` (the winner genuinely beat all 3 rejected
+candidates on comfort score, not by construction) → `collectLandmarks` (11
+real landmarks across 5 manoeuvres) → `rewriteToSteps` (natural, varied
+Chinese sentences — confirmed NOT template-style by checking they don't all
+start with the same fixed phrase) → checked again through `validateSteps`
+independently: `ok: true`, zero violations. 3.5 s round trip.
+
+**`POST /api/reanchor`** (a mid-route position, `ms`): real nearest-landmark
+lookup plus a full re-route, 200 OK, ~4 s once measured cleanly (see the
+Windows dev-workflow note in DEVPLAN.md — an early measurement said 118 s,
+which was a false alarm from a stale duplicate server process, not the
+route-handler code). Caught one real bug in the process: `recalculating`
+("Saya cari jalan semula") is written capitalized in the phrase book for the
+same "also spoken standalone" reason `arrived` was — and had the exact same
+mid-sentence-capitalization bug when composed into the reassurance sentence.
+Unlike `templateSteps`' output, this text never passes through
+`validateSteps()` (it's a standalone phrase, not a `Step[]`), so nothing
+would have caught it automatically — found only by reading the actual live
+response text. Fixed by exporting `core/validate.ts`'s `lowercaseFirst` for
+reuse in `server/index.ts`.
+
+**`POST /api/understand`**: the `"(nospeech)"` short-circuit was verified via
+a real MERaLiON call through the actual endpoint (correct `clarify` response,
+`notUnderstood` phrase); the audio-hash cache was confirmed working (repeat
+call, identical audio, 68 ms — no second MERaLiON round trip). The
+destination-extraction path (`extractDestination` → `search` → dedupe) was
+verified with real Gemini + OneMap calls made directly rather than through a
+second `transcribe()` spend (real speech audio isn't producible
+server-side) — this also reproduced, on demand, the exact "AMK Hub returns 3
+postal variants" ambiguity noted in § 2.2, and confirmed
+`server/index.ts`'s `dedupeByName` collapses them to the single real
+destination it actually is.
 
 ---
 

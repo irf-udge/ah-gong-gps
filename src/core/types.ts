@@ -253,9 +253,19 @@ export interface UnderstandResponse {
   clarify: { question: string; candidates: Place[] } | null;
 }
 
+/**
+ * ⚠️ Carries the full `destination`, not just an id. Found wiring up
+ * `POST /api/journey`: there is no server-side store to resolve a bare
+ * `destinationId` back to coordinates — OneMap has no "get place by id"
+ * endpoint, and `Place.id` (see server/onemap.ts's `placeId()`) is a
+ * deterministic hash, not a lookup key into anything. The client already
+ * holds the full `Place` (from `UnderstandResponse.destination` or a
+ * `ClarifyScreen.onPick`), so it just passes it through wholesale instead of
+ * the server trying to resurrect one from a string.
+ */
 export interface PlanJourneyRequest {
   origin: LatLng;
-  destinationId: string;
+  destination: Place;
   lang: Lang;
 }
 
@@ -265,10 +275,16 @@ export interface PlanJourneyResponse {
   rejected: ScoredRoute[];
 }
 
+/**
+ * ⚠️ Carries `destination`, not `journeyId` — same reason as
+ * PlanJourneyRequest above: there is no server-side journey store, so a bare
+ * id has nothing to resolve against. Re-anchoring needs to know where the
+ * journey was headed to re-route from `at`; the client already has that.
+ */
 export interface ReanchorRequest {
   at: LatLng;
   lang: Lang;
-  journeyId: string;
+  destination: Place;
 }
 
 export interface ReanchorResponse {

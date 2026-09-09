@@ -75,7 +75,7 @@ These are cheap to do now and expensive to discover late. Do them in parallel.
 
 ---
 
-## 👤 Irfan — Pipeline spine + comfort routing + Voice I/O (93%)
+## 👤 Irfan — Pipeline spine + comfort routing + Voice I/O (97%)
 
 Owns `src/core/**`, `src/providers/**`, `src/audio/**`, `src/phrases/**`,
 `server/**`, `data/**`, `fixtures/**`. (Originally two roles — A: pipeline
@@ -282,7 +282,24 @@ split by role anymore, just grouped by checkpoint.)
       the user understands
 
 ### CP3 — language + validation
-- [ ] `server/meralion.ts` — `transcribe`, `ping`, `rateLimitStatus`
+- [x] ~~`server/meralion.ts` — `transcribe`, `ping`, `rateLimitStatus`~~
+      **DONE, LIVE-VERIFIED — and corrected a stale documented fact.** `ping()`
+      + `rateLimitStatus()` cost no quota; `transcribe()` was tested with
+      exactly ONE real call (a synthetic tone), deliberately minimal given the
+      quota constraint below. Two findings:
+      1. **The old "5 req/min" figure was wrong.** Live `rateLimitStatus()`
+         reported `{ limit: 200, remaining: 200, window: "1 minute" }`;
+         `remaining` dropped to 199 after the one real `transcribe()` call,
+         confirming the endpoint tracks real usage, not a static number.
+         **Actual limit: 200 req/min.** Token cost held up under fresh
+         measurement though — that same call billed 337 total tokens,
+         consistent with the documented ~334 flat-per-request figure. The
+         100k-token monthly cap itself was NOT re-verified (would mean
+         burning real quota just to measure the ceiling).
+      2. **Silent/non-speech audio returns the literal string `"(nospeech)\n"`**
+         — not an empty string, not an error. `/api/understand` treats this
+         the same as "didn't catch that" rather than wasting a Gemini
+         extraction call on it — verified live via the real HTTP endpoint.
 - [x] ~~`server/llm.ts` — `extractDestination`, `rewriteToSteps`.~~ **DONE AND
       LIVE-TESTED**, on Gemini (free tier), not Anthropic — see CONTRACTS.md
       § LLM for the full story. Both calls use `gemini-3.5-flash-lite` — the
@@ -313,8 +330,67 @@ split by role anymore, just grouped by checkpoint.)
          where its capitalization reads as an invented proper noun. Fixed by
          lowercasing it for the mid-sentence case (the grammatically correct
          behaviour, not a validator workaround).
-- [ ] Retry-once-then-template fallback wired in
-- [ ] `POST /api/understand`, `/api/journey`, `/api/reanchor`
+- [x] ~~Retry-once-then-template fallback wired in~~ **DONE** — see
+      `server/index.ts`'s `planJourneyCore`: `rewriteToSteps` →
+      `validateSteps`; on failure, `rewriteToSteps` again with
+      `validation.violations` fed back (this is why `rewriteToSteps` now
+      takes an optional 4th `feedback` param — wasn't in the original stub
+      signature); on a SECOND failure, `templateSteps`. On the real live run
+      below, the first Gemini attempt passed validation clean — the retry
+      path is implemented and unit-reachable but hasn't fired on real output
+      yet, only in the deliberate-failure tests in `core/validate.ts`'s own
+      verification.
+- [x] ~~`POST /api/understand`, `/api/journey`, `/api/reanchor`~~ **DONE,
+      LIVE-VERIFIED end to end** — all three, against real MERaLiON, OneMap,
+      and Gemini, not fixtures and not mocks.
+      **`/api/journey`** (real origin → AMK Hub, zh): full real pipeline in
+      one HTTP call — `generateCandidates` (4 candidates, real OneMap
+      routing) → `scoreRoute`/`rankRoutes` (winner correctly beat all 3
+      rejected on comfort score) → `collectLandmarks` (11 real landmarks) →
+      `rewriteToSteps` (natural, varied Chinese sentences, not template-style)
+      → fed back through `validateSteps` as an explicit check: `ok: true`,
+      zero violations. 3.5s round trip.
+      **`/api/reanchor`** (mid-route position, ms): real nearest-landmark
+      lookup + a full re-route, 200 OK, ~4s. Caught a real bug in the
+      process — `recalculating` ("Saya cari jalan semula") is written
+      capitalized for the same "also spoken standalone" reason as
+      `validateSteps`' `arrived` bug above, and had the exact same mid-sentence
+      capitalization problem when composed into the reassurance sentence.
+      Unlike the `templateSteps` case, this text never passes through
+      `validateSteps()` at all (it's a standalone reassurance phrase, not a
+      `Step[]`), so nothing would have caught it automatically — only found
+      by actually reading the live response text. Fixed by exporting
+      `core/validate.ts`'s `lowercaseFirst` helper for reuse here.
+      **`/api/understand`**: nospeech path verified via a real MERaLiON call
+      through the actual HTTP endpoint (correct `clarify` response using the
+      `notUnderstood` phrase); confirmed the audio-hash cache works (a repeat
+      call with identical audio returned in 68ms, no second MERaLiON spend).
+      The destination-extraction path (`extractDestination` → `search` →
+      dedupe) was verified with real Gemini + OneMap calls directly rather
+      than through a second `transcribe()` spend, since real speech audio
+      isn't producible server-side — confirmed real OneMap search for
+      "AMK Hub" genuinely returns 3 postal-variant results for the same
+      building, and the dedupe-by-name step collapses them to 1 (this is
+      exactly the ambiguity `server/onemap.ts`'s CONTRACTS.md note already
+      flagged; now there's a concrete fix for it).
+      **Real architecture gap found and fixed, twice, before either endpoint
+      was even callable:** `PlanJourneyRequest.destinationId: string` and
+      `ReanchorRequest.journeyId: string` both assumed a server-side lookup
+      that doesn't exist — there's no journey/place store, and OneMap has no
+      "get by id" endpoint. Both now carry the full `Place`/`destination`
+      object instead; the client already has it (from `UnderstandResponse`
+      or a `ClarifyScreen.onPick`), so it's passed through rather than the
+      server trying to resurrect one from a bare string.
+      ⚠️ **Windows dev-workflow note, not a code issue:** `npx tsx <script>`
+      spawns 3 processes (npx wrapper → tsx CLI wrapper → the actual node
+      runtime), and the real runtime's command line doesn't contain the
+      literal substring "tsx" — so `pkill -f "tsx server/index.ts"` only
+      kills the wrapper layers, leaving the real server running and bound to
+      the port. This produced a very confusing false alarm (one `/api/reanchor`
+      call measured 118s) that had nothing to do with the route-handler code —
+      a clean single-instance restart of the exact same code measured 3-4s.
+      Use `netstat -ano` to find the real listening PID and `taskkill //F //PID`
+      on Windows, not `pkill -f`.
 
 ### CP3/CP4 — the differentiator
 - [x] ~~`core/comfort.ts` — `generateCandidates`, `scoreRoute`, `describeScore`,
@@ -325,10 +401,17 @@ split by role anymore, just grouped by checkpoint.)
       ⚠️ **`stairsCount` is a placeholder (`0`)** — no data source wired up yet.
       OSM's `highway=steps` is queryable via the same Overpass pull that found
       shelter/bench/toilet but hasn't been pulled. Real gap, not fabricated.
-- [ ] Wire `generateCandidates`/`scoreRoute` into `server/llm.ts`'s journey
-      endpoint once `server/onemap.ts`'s `walkRoute` is real (CP2) — tested so
-      far against a mock `RoutingProvider`, not live OneMap.
-- [ ] Return `rejected` candidates so Lija's judge view has something to show
+- [x] ~~Wire `generateCandidates`/`scoreRoute` into `server/llm.ts`'s journey
+      endpoint once `server/onemap.ts`'s `walkRoute` is real (CP2)~~ **DONE**
+      — see `/api/journey` above; this is `planJourneyCore` in
+      `server/index.ts`, live-verified against real OneMap routing, not the
+      mock `RoutingProvider` the original smoke test used.
+- [x] ~~Return `rejected` candidates so Lija's judge view has something to
+      show~~ **DONE** — `PlanJourneyResponse.rejected` is populated from
+      `rankRoutes`' non-winning candidates; confirmed live (3 rejected
+      candidates, each with its own real comfort score, on the test run
+      above). `JudgeView` itself is still a stub — this is the data it'll
+      render once built.
 - [ ] Pre-warm the demo route's cache for stage day
 
 ### CP4
