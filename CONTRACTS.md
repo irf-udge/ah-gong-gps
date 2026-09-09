@@ -370,6 +370,41 @@ supplied landmark list".
 { steps: [{ index, landmark_id /* enum */, action, spoken_text, display_text }] }
 ```
 
+### The model: Gemini, live-verified — not what the docs said
+
+**`gemini-3.5-flash-lite` for both calls.** Not a cheap/quality split — tested
+live and both calls use it. Verified against a real key on 2026-09-09,
+because the docs and the live API disagreed:
+
+- `ai.google.dev`'s pricing page listed the entire `gemini-2.5-*` line as
+  free-tier-eligible. **Wrong for a real key** — every 2.5 model (flash-lite,
+  flash, pro) 404s: *"no longer available to new users."* Docs lag live
+  rollouts; don't trust them over an actual probe against your own key.
+- Working models found by directly probing the API: `gemini-3.5-flash-lite`,
+  `gemini-3.5-flash`, `gemini-3.1-flash-lite`, `gemini-3-flash-preview`.
+  `gemini-3.8-flash` exists but returned `503 high demand` — not reliable
+  enough to depend on for a demo.
+- **Latency decided it, not capability.** Same structured-output prompt
+  shape, measured: `gemini-3.5-flash` ~6-7s (even with thinking disabled)
+  vs `gemini-3.5-flash-lite` ~1.2-1.7s, consistent across repeated calls.
+  6-7s is a real risk with judges watching; 1.2-1.7s isn't. The rewrite
+  task is deliberately short, simple, landmark-anchored sentences — a
+  product requirement (§8), not a concession — so lite's quality ceiling
+  was never actually the constraint.
+- **`thinkingConfig: { thinkingBudget: 0 }` returns a flat `400 INVALID_ARGUMENT`
+  on `gemini-3.5-flash-lite`** — isolated directly, independent of the
+  schema. `-1` (automatic) and omitting the field both work. The SDK's own
+  `.d.ts` warns allowed ranges are model-dependent; this is that, in
+  practice. `server/llm.ts` omits `thinkingConfig` entirely — nothing was
+  gained by fighting for a lower budget than the ~1.2-1.7s already measured.
+- Structured output uses `responseJsonSchema` (plain JSON Schema — not the
+  older `responseSchema` + proprietary `Type.STRING` enum shape). Confirmed
+  both in the SDK's `.d.ts` and live: `buildStepSchema()`'s existing
+  plain-JSON-Schema output was passed straight through with zero conversion,
+  and the `landmark_id` enum constraint held on every step across a live
+  end-to-end run in **both** Mandarin and Malay — no invented landmark ever
+  came back.
+
 ### Prompt constraints (non-negotiable)
 
 - Use **only** landmarks supplied in this request. Never invent one.

@@ -1,44 +1,49 @@
 // OWNER: A (Pipeline spine) — do not edit unless you are the owner.
 //
 // The two LLM calls, on the Gemini API (Google AI Studio) — free tier, not
-// Anthropic. Verified against the real installed SDK before writing this,
-// not from training memory: @google/genai v2.21.0's actual .d.ts, and
-// ai.google.dev's live pricing/model pages (fetched 2026-09-09). Google's own
-// rate-limits page explicitly refuses to publish fixed RPM/RPD numbers —
-// "depend on your usage tier... viewed in Google AI Studio" — so there's no
-// generic number to record here the way MERaLiON's /keys/usage gave one.
-// Get a key at https://aistudio.google.com/apikey, then check your real
-// limits at https://aistudio.google.com/rate-limit once you have one.
+// Anthropic.
 //
-//   1. extractDestination — gemini-2.5-flash-lite, thinkingBudget: 0. Trivial
-//      extraction task, runs in the interactive loop — speed over depth.
-//   2. rewriteToSteps — gemini-2.5-flash, thinking left at its default.
-//      Quality-critical.
+// ⚠️ MODEL CHOICE WAS LIVE-TESTED, NOT TAKEN FROM DOCS. ai.google.dev's own
+// pricing page (fetched 2026-09-09) listed the whole gemini-2.5-* line as
+// free-tier-eligible. It's wrong for a real key: every 2.5 model (flash-lite,
+// flash, pro) 404s for this project with "no longer available to new users."
+// Docs lag live rollouts — the actual model list was found by probing the
+// real API with the real key (see git history for the probe scripts), not by
+// reading more documentation.
 //
-// Both models confirmed free-tier-eligible on ai.google.dev/gemini-api/docs/
-// pricing as of 2026-09-09. gemini-2.0-flash is NOT used here — it's being
-// deprecated (2026-06-01) and Google's own docs point migrators at 2.5-flash.
+// Verified working, live, on 2026-09-09: gemini-3.5-flash-lite,
+// gemini-3.5-flash, gemini-3.1-flash-lite, gemini-3-flash-preview.
+// gemini-3.8-flash returned 503 "high demand" — exists, just not reliably
+// available; not worth depending on for a demo. gemini-2.0-flash is fully
+// removed (as expected — Google's deprecation notice pointed here too).
+//
+// Both calls use gemini-3.5-flash-lite, not a cheap/quality split. Measured
+// structured-output latency, same prompt shape as the real calls below:
+//   gemini-3.5-flash        ~6-7s even with thinkingConfig.thinkingBudget: 0
+//   gemini-3.5-flash-lite   ~1.2-1.7s, consistent across repeated calls
+// 6-7s is a real risk standing in front of judges; 1.2-1.7s isn't. The
+// rewrite task is deliberately short, simple, landmark-anchored sentences —
+// that's a product requirement (see CONTRACTS.md § UI rules), not a
+// simplification made to accommodate a weaker model, so the lite tier's
+// quality ceiling was never actually the constraint here.
 //
 // Structured output: `responseMimeType: 'application/json'` +
 // `responseJsonSchema` (NOT the older `responseSchema` + proprietary `Type`
 // enum shape — that's still supported but responseJsonSchema takes a PLAIN
 // JSON Schema object directly, which is what buildStepSchema() below already
-// produces. Verified in node_modules/@google/genai/dist/node/*.d.ts: since
-// SDK v1.9.0 the backend has native JSON Schema support and a JSON-Schema-
-// shaped `responseSchema` is auto-relocated to responseJsonSchema anyway —
-// this code sets the field explicitly rather than lean on that migration
-// shim.
+// produces). Verified in node_modules/@google/genai/dist/node/*.d.ts AND live
+// — the landmark_id enum constraint was tested end to end against the real
+// fixture data and holds (every returned landmark_id was in the supplied set).
 //
-// ⚠️ `thinkingBudget: 0` is documented as "0 is DISABLED", but the SDK's own
-// .d.ts adds "the default values and allowed ranges are model dependent" —
-// if gemini-2.5-flash-lite ever rejects 0 outright, that's a live API error
-// to fix by raising the budget, not a silent-wrong-behaviour risk.
+// Get a key at https://aistudio.google.com/apikey. Google's rate-limits page
+// refuses to publish fixed RPM/RPD numbers — "depend on your usage tier... viewed
+// in Google AI Studio" — check yours at https://aistudio.google.com/rate-limit.
 
 import { GoogleGenAI } from '@google/genai';
 import type { Action, Lang, Landmark, Manoeuvre, Place, Step } from '../src/core/types';
 
-export const EXTRACTION_MODEL = 'gemini-2.5-flash-lite';
-export const REWRITE_MODEL = 'gemini-2.5-flash';
+export const EXTRACTION_MODEL = 'gemini-3.5-flash-lite';
+export const REWRITE_MODEL = 'gemini-3.5-flash-lite';
 
 let client: GoogleGenAI | null = null;
 
@@ -135,10 +140,15 @@ export async function extractDestination(
   const response = await ai.models.generateContent({
     model: EXTRACTION_MODEL,
     contents: prompt,
+    // No thinkingConfig: gemini-3.5-flash-lite returns a flat 400
+    // "invalid argument" for thinkingBudget: 0 specifically (tested directly —
+    // isolated from the schema, which was fine on its own; -1/omitted both
+    // work). The SDK's own .d.ts warned allowed ranges are model-dependent;
+    // this is that in practice. Omitting it is already fast (~1.2-1.7s
+    // measured) so there's nothing to gain by fighting for a lower budget.
     config: {
       responseMimeType: 'application/json',
       responseJsonSchema: EXTRACTION_SCHEMA,
-      thinkingConfig: { thinkingBudget: 0 },
     },
   });
 

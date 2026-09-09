@@ -103,15 +103,16 @@ Owns `src/core/**`, `src/providers/{index,types,onemap,fixtures}.ts`,
 
 ### CP3 — language + validation
 - [ ] `server/meralion.ts` — `transcribe`, `ping`, `rateLimitStatus`
-- [x] ~~`server/llm.ts` — `extractDestination`, `rewriteToSteps`.~~ **DONE, on
-      Gemini (free tier), not Anthropic** — see CONTRACTS.md § LLM.
-      `gemini-2.5-flash-lite` for extraction (fast/cheap), `gemini-2.5-flash`
-      for the rewrite (quality-critical). Structured output via
-      `responseJsonSchema` — `buildStepSchema()`'s plain-JSON-Schema output is
-      used directly, no format conversion needed.
-      ⚠️ **Not live-tested against a real key yet** — verified against the
-      installed SDK's actual type definitions, not run end-to-end. Run it for
-      real the moment `GEMINI_API_KEY` exists.
+- [x] ~~`server/llm.ts` — `extractDestination`, `rewriteToSteps`.~~ **DONE AND
+      LIVE-TESTED**, on Gemini (free tier), not Anthropic — see CONTRACTS.md
+      § LLM for the full story. Both calls use `gemini-3.5-flash-lite` — the
+      entire `gemini-2.5-*` line 404s for a real key despite what the docs
+      said, and `gemini-3.5-flash` (non-lite) measured 6-7s vs lite's
+      1.2-1.7s for the same structured-output call, too slow for a live demo.
+      Ran end to end against real fixture data in **both** zh and ms —
+      extraction correctly detects language and rejects non-destination
+      utterances; every rewritten step's `landmark_id` stayed inside the
+      supplied set, no invented landmarks in either language.
 - [ ] `core/validate.ts` — `buildLexicon`, `validateSteps`, `templateSteps`
 - [ ] Retry-once-then-template fallback wired in
 - [ ] `POST /api/understand`, `/api/journey`, `/api/reanchor`
