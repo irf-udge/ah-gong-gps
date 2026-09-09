@@ -25,16 +25,16 @@ These are cheap to do now and expensive to discover late. Do them in parallel.
       > 🔴 **TOKEN EXPIRES 2026-09-10 23:27 SGT.** That is a hard 72-hour clock,
       > and it lands *on* the late end of our demo window. A raw token cannot
       > self-refresh.
-- [ ] **Irfan — do this anyway:** get `ONEMAP_EMAIL` + `ONEMAP_PASSWORD` so the
-      server can mint its own tokens and refresh on 401. Ten minutes now removes
-      a single point of failure that kills every route and landmark on stage.
+- [x] ~~**Irfan — do this anyway:** get `ONEMAP_EMAIL` + `ONEMAP_PASSWORD`~~
+      **DONE.** Both in `.env`, and `server/onemap.ts` prefers them over the
+      raw token specifically for this reason — live-verified minting/refresh
+      throughout the CP2 OneMap work (see `getToken()`).
 - [x] ~~**Irfan —** Enumerate OneMap themes.~~ **DONE — 165 layers, 11 usable, saved
       to `fixtures/onemap-themes.json`.** Result: **no** shelter / bench / toilet
       / lift / bus-stop layer exists. Themes are a *landmark* source only.
-- [ ] **Irfan —** Gemini key in `.env` (free tier — <https://aistudio.google.com/apikey>).
-      Verify with `curl localhost:8787/api/health`. Then check real rate limits
-      at <https://aistudio.google.com/rate-limit> — Google doesn't publish
-      fixed RPM/RPD numbers, they're account-tier-specific.
+- [x] ~~**Irfan —** Gemini key in `.env`~~ **DONE — confirmed via
+      `/api/health` (`keys.gemini: true`) and live-tested end to end
+      (`server/llm.ts`'s extraction + rewrite calls, see CP3 below).**
 - [ ] **Irfan — ⚠️ Highest-value 10 minutes of the project.** On the **actual demo
       phone**, run `speechSynthesis.getVoices()` and confirm a **`zh-CN`** and a
       **`ms-MY`** voice exist. If Malay is missing, half the demo is dead and we
