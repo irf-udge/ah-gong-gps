@@ -22,13 +22,16 @@
 //   manual per ?loc=) -> arrive. "I'm lost" (handleImLost) calls
 //   POST /api/reanchor the same way.
 //
-// Screen map: idle -> HomeScreen, listening/resolving -> ListeningScreen,
-// clarifying -> ClarifyScreen, ready -> ConfirmationScreen, navigating ->
-// JourneyScreen, arrived -> ArrivedScreen, ?judge=1 -> JudgeView (checked
-// first, independent of phase). planning/lost/error don't have dedicated
-// screens — they fall back to ListeningScreen rather than a blank one.
+// Screen map: !langChosen -> LanguageScreen (screen zero, checked right
+// after ?judge=1 — see resolveInitialLang below for why this exists), idle
+// -> HomeScreen, listening/resolving -> ListeningScreen, clarifying ->
+// ClarifyScreen, ready -> ConfirmationScreen, navigating -> JourneyScreen,
+// arrived -> ArrivedScreen, ?judge=1 -> JudgeView (checked first,
+// independent of phase and of langChosen — a judge doesn't need to pick a
+// language). planning/lost/error don't have dedicated screens — they fall
+// back to ListeningScreen rather than a blank one.
 
-import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { haversineM } from '../core/geo';
 import type {
   Journey,
@@ -57,6 +60,7 @@ import { ClarifyScreen } from './screens/ClarifyScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { JourneyScreen } from './screens/JourneyScreen';
 import { JudgeView } from './screens/JudgeView';
+import { LanguageScreen } from './screens/LanguageScreen';
 import { ListeningScreen } from './screens/ListeningScreen';
 import { ConfirmationScreen } from './screens/ConfirmationScreen';
 
@@ -101,16 +105,46 @@ function getCurrentPosition(): Promise<LatLng> {
 }
 
 /**
- * Which language the DEMO runs in — picked once, upfront, via `?lang=ms`
- * (default `zh`). This is deliberately NOT a UI toggle (that would violate
- * "one action per screen") and NOT journey/machine.ts's resolveLang (which
- * only has something to read once a journey already exists — nothing tells
- * it which language to LISTEN in beforehand). Fine for CP1: real language
- * detection from actual speech is a later checkpoint, not a fixture concern.
+ * ⚠️ 2026-09-10: this used to BE the whole language story — `?lang=ms` or
+ * silently default to `zh`, no in-app way to switch. That's a dead end for
+ * a user who can't read the script she landed on and has no way to type a
+ * query string — not a minor inconvenience, a core-value-prop bug (same
+ * severity class as CONTRACTS.md § 8's "no map" rule). Real fix is
+ * LanguageScreen (screen zero, gated by `langChosen` below); these three
+ * functions are just its supporting URL/localStorage plumbing now.
  */
-function resolveDemoLang(): Lang {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('lang') === 'ms' ? 'ms' : 'zh';
+const LANG_STORAGE_KEY = 'ezjalan:lang';
+
+function readStoredLang(): Lang | null {
+  try {
+    const v = window.localStorage.getItem(LANG_STORAGE_KEY);
+    return v === 'zh' || v === 'ms' ? v : null; // validate, never blindly cast
+  } catch {
+    return null; // private browsing / storage disabled — fall through to the picker
+  }
+}
+
+function writeStoredLang(lang: Lang): void {
+  try {
+    window.localStorage.setItem(LANG_STORAGE_KEY, lang);
+  } catch {
+    // best-effort only — a returning user re-picking once is a fine degradation
+  }
+}
+
+/**
+ * Resolve language on load, in priority order: an explicit `?lang=`
+ * override (demo links, judges, testing — always wins), then a previously
+ * PICKED language (LanguageScreen, persisted), then null — meaning nobody
+ * has told us yet, so LanguageScreen must ask. Pure read only; persisting a
+ * URL override is done in a useEffect in App() below, not here — this runs
+ * inside a useMemo, and StrictMode double-invokes memo initializers in dev,
+ * so a side effect here would run twice.
+ */
+function resolveInitialLang(): Lang | null {
+  const param = new URLSearchParams(window.location.search).get('lang');
+  if (param === 'zh' || param === 'ms') return param;
+  return readStoredLang();
 }
 
 export function App() {
@@ -122,7 +156,28 @@ export function App() {
 
   const opts = useMemo(() => readProviderOptions(), []);
   const providers = useMemo(() => createProviders(opts), [opts]);
-  const lang = useMemo(() => resolveDemoLang(), []);
+
+  // `lang` itself stays ALWAYS a valid Lang (never null) — every closure
+  // below that needs it (runDemoFlow, runRealFlow, resolveAndStart,
+  // handleImLost, both TTS effects) is defined before any early return is
+  // allowed to appear (Rules of Hooks), so typing `lang` as `Lang | null`
+  // would force `lang!` assertions into every one of them: TS's
+  // control-flow narrowing from a LATER `if (!langChosen) return` doesn't
+  // retroactively apply to closures defined earlier in the function.
+  // `langChosen` is the only new gate; the pre-choice 'zh' default below is
+  // never actually observed by the user — state.phase starts at 'idle' and
+  // nothing reaches HomeScreen (the only way any of those closures fire)
+  // until langChosen is true.
+  const initialLang = useMemo(() => resolveInitialLang(), []);
+  const [lang, setLang] = useState<Lang>(initialLang ?? 'zh');
+  const [langChosen, setLangChosen] = useState<boolean>(initialLang !== null);
+
+  // Remember an explicit ?lang= override for next visit too — a proper
+  // effect, not a side effect inside the useMemo above.
+  useEffect(() => {
+    if (initialLang !== null) writeStoredLang(initialLang);
+  }, [initialLang]);
+
   const judgeMode = useMemo(() => new URLSearchParams(window.location.search).get('judge') === '1', []);
 
   const locationRef = useRef<LocationProvider | null>(null);
@@ -388,6 +443,12 @@ export function App() {
     })();
   }, [opts.demoMode, providers.tts, startSimulatedWalk]);
 
+  const handleChooseLang = useCallback((picked: Lang) => {
+    writeStoredLang(picked);
+    setLang(picked);
+    setLangChosen(true);
+  }, []);
+
   if (judgeMode) {
     return (
       <JudgeView
@@ -399,6 +460,12 @@ export function App() {
       />
     );
   }
+
+  // Screen zero — see the file header and resolveInitialLang's doc for why
+  // this exists. Checked after judgeMode (a judge doesn't need to pick a
+  // language) and before the phase switch (every senior-facing screen below
+  // needs a real, known lang).
+  if (!langChosen) return <LanguageScreen onChoose={handleChooseLang} />;
 
   switch (state.phase) {
     case 'idle':

@@ -688,6 +688,10 @@ Owns `src/ui/**`, `src/journey/**`, `src/main.tsx`.
       `JudgeView` is the only screen with a full map/route table, and it's
       judge-only (`?judge=1`, never reached by the senior-facing state
       machine).
+- [x] ~~Language must be reachable without typing a URL~~ **DONE, 2026-09-10**
+      — see the note below. Real, user-reported bug: `zh` vs `ms` used to
+      come ONLY from `?lang=ms`, no in-app switcher anywhere, defaulting
+      silently to `zh`. Fixed with `LanguageScreen` (screen zero).
 
 ### 2026-09-10 — merged Lija's `lija` branch (UI bootstrap: new screens + redesign)
 
@@ -714,6 +718,51 @@ user ever tapped Start — invisible in practice (`ready`-phase
 `handleStartJourney` stops-and-restarts the provider fresh from position 0
 when actually tapped) but wasted work and inconsistent with her own stated
 intent. Removed the leftover call so both paths match.
+
+### 2026-09-10 — added LanguageScreen (screen zero): language is no longer URL-only
+
+Real, user-reported bug, not a style nit: `ui/App.tsx`'s `resolveDemoLang()`
+picked `zh` vs `ms` ONLY from `?lang=ms` in the URL, defaulting silently to
+`zh` with no in-app switcher anywhere (confirmed — zero grep hits for one).
+A Malay-reading user landing on the plain URL got every string on her first
+screen — header, eyebrow, headline, location line, the one big button — in a
+script she cannot read, with no escape except typing a query string, exactly
+the capability this app's target user doesn't have. The old doc comment's
+"a UI toggle would violate one action per screen" reasoning had picked the
+wrong tradeoff: a screen with two buttons for one decision is navigable
+(same shape as `ClarifyScreen`'s candidate picker); a screen in the wrong
+script is a dead end. Same severity class as CONTRACTS.md § 8's "no map"
+rule — a core-value-prop bug, not a preference.
+
+Fixed with `LanguageScreen` (new, `src/ui/screens/`) — screen zero, shown
+before `HomeScreen` until a language is chosen: two equal-weight buttons,
+`中文` / `Bahasa Melayu`, each labelled only in its own script, deliberately
+no other text on screen at all (any prompt would itself need a script,
+reintroducing the exact problem). Choice persists (`localStorage`, key
+`ezjalan:lang`) so a returning user goes straight to the mic screen.
+`?lang=` still works as an explicit override (demo links, judges, testing)
+and now also gets persisted once used, so it's remembered on a later visit
+without the param. `?judge=1` still bypasses the picker entirely — a judge
+doesn't need to pick a language first, and `JudgeView` is internal debug UI.
+
+Typing decision worth recording: `lang` in `App()` stays ALWAYS a valid
+non-null `Lang` (defaulting to `'zh'` pre-choice, never actually observed by
+the user since nothing senior-facing renders until the new `langChosen`
+boolean flips true) rather than becoming `Lang | null` throughout. The
+latter would have forced `lang!` assertions or guards into ~5 call sites
+(`runDemoFlow`, `runRealFlow`, `resolveAndStart`, `handleImLost`, both TTS
+effects) — all defined before any early return is allowed to appear (Rules
+of Hooks), so TS's control-flow narrowing from a later `if (!langChosen)
+return` can't retroactively apply to those closures. A separate boolean gate
+avoided that blast radius entirely.
+
+No other file needed changes — `HomeScreen`'s `.language` badge and inline
+`lang === 'ms' ? ... : ...` ternaries already work correctly once `lang` is
+populated. Deliberately NOT in scope: an ongoing in-app language switcher —
+this is a one-time picker + persistence only, matching the literal ask. A
+wrong pick's only in-app recovery today is clearing site data or revisiting
+with `?lang=`; a real switcher (e.g. making the `.language` badge tappable)
+is a natural, documented follow-up, not done here.
 
 ---
 

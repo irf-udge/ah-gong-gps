@@ -836,6 +836,18 @@ the winner (82% shelter, 2 benches, no stairs).
 Not style preferences — these are the reason the product exists.
 
 - **One primary action per screen.** The home screen is one big button.
+- **Language must be chosen ON SCREEN, never only via a URL param.** ⚠️ Real
+  bug, fixed 2026-09-10: the app used to pick `zh` vs `ms` from `?lang=ms`
+  alone, defaulting silently to `zh` with no in-app switcher anywhere — a
+  Malay-reading user landing on the plain URL got a screen entirely in a
+  script she couldn't read, with no escape except typing a query string,
+  precisely the capability this app's target user doesn't have. `?lang=`
+  still works as a demo/judge/testing override (and now persists once used),
+  but the real, primary path is `LanguageScreen` — screen zero, shown before
+  `HomeScreen` until a choice is made, two equal-weight buttons each
+  labelled only in its own script, no other text (any prompt would itself
+  need a script). The choice persists (`localStorage`) so a returning user
+  never sees it twice. See `ui/App.tsx`'s `resolveInitialLang`.
 - **Never render a list of upcoming steps.** One step at a time. A list is
   working-memory load, and working memory is exactly what declines with age.
   This is the easiest rule to break by accident.

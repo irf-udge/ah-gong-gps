@@ -83,7 +83,9 @@ body {
   gap: var(--gap);
 }
 
-.home-screen, .confirmation-screen { max-width: 560px; margin: auto; width: 100%; justify-content: space-between; }
+.home-screen, .confirmation-screen, .language-screen { max-width: 560px; margin: auto; width: 100%; }
+.home-screen, .confirmation-screen { justify-content: space-between; }
+.language-screen { justify-content: center; }
 .brand { display: flex; justify-content: space-between; align-items: center; font-weight: 900; font-size: 34px; letter-spacing: -0.04em; }
 .language { color: var(--fg-muted); font-weight: 600; }
 .eyebrow { margin: 0; color: var(--accent); font-weight: 800; font-size: var(--fs-md); }
