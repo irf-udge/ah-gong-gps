@@ -603,18 +603,54 @@ because the docs and the live API disagreed:
 
 ### Validation, defence in depth
 
-`core/validate.ts:validateSteps()` checks:
+`core/validate.ts:validateSteps()` — **DONE, LIVE-VERIFIED** against real
+fixture data in both languages, not just typechecked. Checks, all collected
+in one pass (no early return — the retry prompt works much better when it
+sees everything):
 
-1. Every `landmark_id` is in the supplied set.
-2. Proper-noun scan — any Latin-script token not in the lexicon or
-   `GENERIC_ALLOWLIST` is an invented name.
-3. Step count matches manoeuvre count.
+1. Every `landmark_id` is in the supplied set (`unknown_landmark`).
+2. Proper-noun scan — any Latin-script token not in the lexicon
+   (`buildLexicon`, drawn from every landmark's `name`/`nameZh`/`nameMs`) or
+   `GENERIC_ALLOWLIST` is an invented name (`invented_proper_noun`).
+3. Step count matches manoeuvre count (`step_count_mismatch`).
+4. `spokenText` isn't empty/whitespace-only (`empty_spoken_text`) — silence
+   reads as broken (§8), so an empty string is a real failure mode, not a
+   theoretical one.
 
-Collect **all** violations; don't early-return. The retry prompt works much
-better when it sees everything.
+> ⚠️ **`validateSteps()` takes a `lang: Lang` parameter — not in the original
+> stub signature.** The proper-noun scan is language-dependent and this is
+> the only way it can know which language it's scanning: **Malay is itself
+> written in Latin script.** "Any Latin-script token not in the lexicon" is
+> correct for `zh` (ordinary Mandarin has none at all — a Latin token is
+> either a real proper noun kept verbatim or invented) but would be
+> **catastrophically wrong** for `ms` — verified against the real fixture,
+> a real Malay step like *"Berjalan ke Pasar Blok 226H."* is almost entirely
+> ordinary Latin-script words, none of which are proper nouns. Naively
+> applying the `zh` rule would flag nearly every word of every Malay
+> sentence as hallucinated. Fixed: for `ms`, only a token that's
+> **capitalized AND not simply the sentence-initial word** (ordinary
+> grammatical capitalization, not a name) counts as suspect — verified
+> zero false positives on the real `ms` fixture, and that an invented
+> capitalized name mid-sentence (`"Berjalan ke Sunshine Plaza."`) is still
+> caught.
+>
+> ⚠️ **This found a second real bug, in `templateSteps()` itself** — the
+> "safe by construction" fallback isn't safe by assertion, it's safe because
+> it was checked: feeding `templateSteps()`'s own output back through
+> `validateSteps()` caught a genuine bug on the first run. The `arrive`
+> template reuses the phrase book's `arrived` string ("Anda sudah sampai")
+> as the second half of a joined sentence — but that string is written
+> capitalized because it's ALSO spoken standalone elsewhere
+> (`ui/App.tsx`'s arrival effect). Reused mid-sentence, "Anda" reads as (and
+> was flagged as) an invented proper noun. Fixed by lowercasing it for the
+> mid-sentence case only — the grammatically correct behaviour, not a
+> validator workaround. `thenStraight`/`thenTurnLeft`/`thenTurnRight` didn't
+> need this; they're already written lowercase since they were never meant
+> to stand alone.
 
 On failure: retry once with the violations fed back. On the second failure, use
-`validate.templateSteps()` — safe by construction.
+`validate.templateSteps()` — safe by construction, and now actually verified
+to be (see above), not just asserted to be.
 
 > ## 🚨 THE ONE RULE
 > **Nothing is ever spoken that has not passed `validateSteps()`.**

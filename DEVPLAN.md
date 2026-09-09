@@ -75,7 +75,7 @@ These are cheap to do now and expensive to discover late. Do them in parallel.
 
 ---
 
-## 👤 Irfan — Pipeline spine + comfort routing + Voice I/O (90%)
+## 👤 Irfan — Pipeline spine + comfort routing + Voice I/O (93%)
 
 Owns `src/core/**`, `src/providers/**`, `src/audio/**`, `src/phrases/**`,
 `server/**`, `data/**`, `fixtures/**`. (Originally two roles — A: pipeline
@@ -293,7 +293,26 @@ split by role anymore, just grouped by checkpoint.)
       extraction correctly detects language and rejects non-destination
       utterances; every rewritten step's `landmark_id` stayed inside the
       supplied set, no invented landmarks in either language.
-- [ ] `core/validate.ts` — `buildLexicon`, `validateSteps`, `templateSteps`
+- [x] ~~`core/validate.ts` — `buildLexicon`, `validateSteps`,
+      `templateSteps`~~ **DONE, LIVE-VERIFIED** against the real fixture in
+      both languages — 21 assertions, not just typechecked.
+      Two real bugs found and fixed (both written up in full in
+      CONTRACTS.md § 6):
+      1. **Malay is itself Latin-script.** The original "any Latin-script
+         token not in the lexicon = invented" rule (correct for `zh`) would
+         have flagged nearly every ordinary word in every `ms` sentence —
+         confirmed by running the actual `ms` fixture text through a naive
+         version first. Fixed with a language-aware scan (`ms` only flags
+         capitalized, non-sentence-initial tokens); `validateSteps()` now
+         takes a `lang: Lang` parameter that wasn't in the original stub
+         signature, since nothing else tells it which language it's scanning.
+      2. **`templateSteps()`'s "safe by construction" fallback had a real
+         bug**, caught by feeding its own output back through
+         `validateSteps()` — the `arrive` template reused the phrase book's
+         standalone `arrived` string ("Anda sudah sampai") mid-sentence,
+         where its capitalization reads as an invented proper noun. Fixed by
+         lowercasing it for the mid-sentence case (the grammatically correct
+         behaviour, not a validator workaround).
 - [ ] Retry-once-then-template fallback wired in
 - [ ] `POST /api/understand`, `/api/journey`, `/api/reanchor`
 
