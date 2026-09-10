@@ -34,10 +34,17 @@ export interface HomeScreenProps {
   lang: Lang;
   onSpeak: () => void;
   onChangeLanguage: () => void;
+  /** Demo mode always shows its own fixed "near AMK Hub" text — no real fix to show a judge testing indoors. */
+  demoMode: boolean;
+  /** Nearest building/block name from a real GPS fix. Null while unresolved or unavailable — real mode then shows no location line at all, rather than guessing. Ignored in demo mode. */
+  locationLabel: string | null;
 }
 
-export function HomeScreen({ lang, onSpeak, onChangeLanguage }: HomeScreenProps) {
+export function HomeScreen({ lang, onSpeak, onChangeLanguage, demoMode, locationLabel }: HomeScreenProps) {
   const book = lang === 'ms' ? ms : zh;
+  const locationLine = demoMode
+    ? (lang === 'ms' ? 'Anda berhampiran Blk 226, Ang Mo Kio' : '您在宏茂桥第226座附近')
+    : locationLabel && (lang === 'ms' ? `Anda berhampiran ${locationLabel}` : `您在${locationLabel}附近`);
   return (
     <main className="screen home-screen">
       <header className="brand">
@@ -51,7 +58,7 @@ export function HomeScreen({ lang, onSpeak, onChangeLanguage }: HomeScreenProps)
           {lang === 'ms' ? 'Bahasa Melayu' : '中文'}
         </button>
       </header>
-      <section className="home-copy"><p className="eyebrow">{lang === 'ms' ? 'Jalan dengan tenang' : '轻松出发'}</p><h1>{lang === 'ms' ? 'Ke mana anda mahu pergi?' : '您想去哪里？'}</h1><p className="location-line">{lang === 'ms' ? 'Anda berhampiran Blk 226, Ang Mo Kio' : '您在宏茂桥第226座附近'}</p></section>
+      <section className="home-copy"><p className="eyebrow">{lang === 'ms' ? 'Jalan dengan tenang' : '轻松出发'}</p><h1>{lang === 'ms' ? 'Ke mana anda mahu pergi?' : '您想去哪里？'}</h1>{locationLine && <p className="location-line">{locationLine}</p>}</section>
       <button type="button" className="mic-button" aria-label={book.tapToSpeak} onClick={onSpeak}><span className="mic-symbol">●</span><span>{lang === 'ms' ? 'Tekan dan cakap' : '按下，说出目的地'}</span></button>
       <p className="quick-destinations">AMK Hub　·　Wet market　·　Clinic</p>
     </main>

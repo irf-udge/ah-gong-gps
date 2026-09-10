@@ -189,6 +189,40 @@ export function App() {
   const opts = useMemo(() => readProviderOptions(), []);
   const providers = useMemo(() => createProviders(opts), [opts]);
 
+  // HomeScreen's "you are near X" line. Demo mode keeps its own fixed text
+  // (judges are indoors, no real fix to show) — this only runs for the real
+  // deployed app. One-shot, low-accuracy fix (this is a rough "near you"
+  // label, not a routing anchor — getCurrentPosition() below is the
+  // high-accuracy one used for /api/understand). Deliberately does NOT fall
+  // back to DEMO_FIXTURE.origin on denial/timeout like getCurrentPosition()
+  // does: that fallback exists so the real pipeline stays demoable indoors,
+  // but silently showing a fake nearby address here would just be wrong —
+  // better to show nothing than to claim a location we don't have.
+  const [locationLabel, setLocationLabel] = useState<string | null>(null);
+  useEffect(() => {
+    if (opts.demoMode || !navigator.geolocation) return;
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const at: LatLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        providers.places
+          .reverseGeocode(at, 100)
+          .then((buildings) => {
+            if (cancelled || buildings.length === 0) return;
+            const nearest = buildings.reduce((a, b) => (haversineM(at, b.at) < haversineM(at, a.at) ? b : a));
+            const label = nearest.buildingName ?? [nearest.block ? `Blk ${nearest.block}` : null, nearest.road].filter(Boolean).join(', ');
+            if (!cancelled && label) setLocationLabel(label);
+          })
+          .catch(() => {});
+      },
+      () => {}, // denied/unavailable — leave locationLabel null, HomeScreen just omits the line
+      { enableHighAccuracy: false, timeout: 8_000, maximumAge: 60_000 },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [opts.demoMode, providers.places]);
+
   // `lang` itself stays ALWAYS a valid Lang (never null) — every closure
   // below that needs it (runDemoFlow, runRealFlow, resolveAndStart,
   // handleImLost, both TTS effects) is defined before any early return is
@@ -589,7 +623,7 @@ export function App() {
 
   switch (state.phase) {
     case 'idle':
-      return <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} />;
+      return <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} demoMode={opts.demoMode} locationLabel={locationLabel} />;
 
     case 'listening':
     case 'resolving':
@@ -610,11 +644,11 @@ export function App() {
       );
 
     case 'ready':
-      return state.journey ? <ConfirmationScreen journey={state.journey} lang={lang} onStart={handleStartJourney} onChange={handleReset} /> : <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} />;
+      return state.journey ? <ConfirmationScreen journey={state.journey} lang={lang} onStart={handleStartJourney} onChange={handleReset} /> : <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} demoMode={opts.demoMode} locationLabel={locationLabel} />;
 
     case 'navigating': {
       const step = state.journey?.steps[state.currentStepIndex];
-      if (!state.journey || !step) return <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} />; // defensive — shouldn't happen
+      if (!state.journey || !step) return <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} demoMode={opts.demoMode} locationLabel={locationLabel} />; // defensive — shouldn't happen
       // Resolved here, not in JourneyScreen — it already gets `step` and
       // this is the one place that also has `state.journey.landmarks` to
       // look it up against. Only used to refine the instruction icon; see
@@ -637,7 +671,7 @@ export function App() {
       return state.journey ? (
         <ArrivedScreen lang={lang} destination={state.journey.destination} onHome={handleReset} />
       ) : (
-        <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} />
+        <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} demoMode={opts.demoMode} locationLabel={locationLabel} />
       );
 
     case 'error':
