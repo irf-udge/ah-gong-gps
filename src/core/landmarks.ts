@@ -133,6 +133,44 @@ async function collectForManoeuvre(
 }
 
 /**
+ * Run `fn` over `items` with at most `limit` calls in flight at once —
+ * still parallel (not the serial fallback `collectLandmarks` explicitly
+ * rejected below), just bounded.
+ *
+ * ⚠️ Added 2026-09-10, found live: `collectLandmarks` used to
+ * `Promise.all` EVERY manoeuvre's reverse-geocode call unbounded. Fine for
+ * the ~4-step demo route this was built against, but a real route to a
+ * real destination can have far more manoeuvres than that (confirmed
+ * live: 26+ on a real query) — nothing for the LRU cache to dedupe
+ * against either, since each manoeuvre is a distinct coordinate. That
+ * unbounded burst tripped OneMap's rate limit outright. Capping the
+ * in-flight count keeps the parallelism win for a normal-sized route
+ * while never sending more than `limit` requests to OneMap at once,
+ * whatever the route's actual length turns out to be.
+ */
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  async function worker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const i = nextIndex++;
+      const item = items[i];
+      if (item === undefined) continue;
+      results[i] = await fn(item);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
+/** How many manoeuvres' reverse-geocode calls run at once — see mapWithConcurrency's doc for why this is bounded at all. */
+const LANDMARK_CONCURRENCY = 5;
+
+/**
  * For each manoeuvre, reverse-geocode its position and union the result with
  * nearby baked amenities. Assign stable ids — Step.landmarkId points at these.
  *
@@ -141,8 +179,9 @@ async function collectForManoeuvre(
  * (`places.reverseGeocode` already does this — see server/onemap.ts's
  * `memoizeAsync` wiring — so this just needs to call it, not cache again.)
  *
- * Calls are issued in PARALLEL across manoeuvres, same reasoning as
- * comfort.ts's generateCandidates: serially this blows the latency budget.
+ * Calls are issued in PARALLEL across manoeuvres (bounded — see
+ * mapWithConcurrency), same reasoning as comfort.ts's generateCandidates:
+ * fully serial blows the latency budget.
  *
  * Ranks and trims to MAX_LANDMARKS_PER_MANOEUVRE per manoeuvre before
  * returning — this result IS `Journey.landmarks`, "the full allowed set"
@@ -154,8 +193,8 @@ export async function collectLandmarks(
   places: PlaceProvider,
   amenities: readonly Poi[],
 ): Promise<Landmark[]> {
-  const perManoeuvre = await Promise.all(
-    manoeuvres.map((m) => collectForManoeuvre(m, places, amenities)),
+  const perManoeuvre = await mapWithConcurrency(manoeuvres, LANDMARK_CONCURRENCY, (m) =>
+    collectForManoeuvre(m, places, amenities),
   );
   return perManoeuvre.flat();
 }

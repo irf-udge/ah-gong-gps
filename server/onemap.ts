@@ -145,7 +145,31 @@ function invalidateToken(): void {
   tokenPromise = null;
 }
 
-/** Authorized fetch with one automatic retry after a token refresh on 401. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Retries for a 429 before giving up — see oneMapFetch's own doc for why this exists. */
+const MAX_429_RETRIES = 3;
+/** Exponential backoff base, plus jitter — a burst of parallel callers all waiting the exact same delay would just retry into the same wall together. */
+const RETRY_BASE_DELAY_MS = 400;
+
+/**
+ * Authorized fetch with one automatic retry after a token refresh on 401,
+ * PLUS a short backoff-retry on 429.
+ *
+ * ⚠️ 429 handling added 2026-09-10, found live: `collectLandmarks`
+ * (src/core/landmarks.ts) fires one reverse-geocode call per manoeuvre, all
+ * in parallel — fine for the ~4-step demo route, but a real route to a real
+ * destination can have far more manoeuvres (confirmed live: a real query
+ * produced 26+), and an unbounded burst of distinct coordinates (nothing
+ * for the LRU cache to dedupe against) tripped OneMap's rate limit. A short
+ * jittered backoff is enough in practice — OneMap's window clears fast.
+ * `collectLandmarks` itself was ALSO capped to a bounded concurrency for the
+ * same reason (see its own doc) — this retry is the safety net for every
+ * other OneMap call site (walkRoute, search, retrieveTheme), not a
+ * replacement for bounding the burst at the source.
+ */
 export async function oneMapFetch<T>(path: string, params: Record<string, string>): Promise<T> {
   const buildUrl = () => {
     const url = new URL(path, ONEMAP_BASE);
@@ -159,6 +183,11 @@ export async function oneMapFetch<T>(path: string, params: Record<string, string
   if (res.status === 401) {
     invalidateToken();
     token = await getToken();
+    res = await fetch(buildUrl(), { headers: { Authorization: token } });
+  }
+
+  for (let attempt = 0; res.status === 429 && attempt < MAX_429_RETRIES; attempt++) {
+    await sleep(RETRY_BASE_DELAY_MS * 2 ** attempt + Math.random() * 200);
     res = await fetch(buildUrl(), { headers: { Authorization: token } });
   }
 
