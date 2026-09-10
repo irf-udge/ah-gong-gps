@@ -88,7 +88,7 @@ export function JourneyScreen({ lang, step, stepCount, onImLost, onRepeat, route
     <main className="screen" style={{ justifyContent: 'space-between' }}>
       <Trail count={stepCount} current={currentStep - 1} />
 
-      <section aria-live="polite" style={{ display: 'flex', flex: 1, alignItems: 'center' }}>
+      <section aria-live="polite" style={{ display: 'flex', flex: 1, alignItems: 'center', gap: 'var(--gap)' }}>
         <div className="instruction-icon"><Icon name={instructionIcon} size={56} /></div>
         <p className="step-text" style={{ margin: 0, width: '100%' }}>
           {step.displayText}
