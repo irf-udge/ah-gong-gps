@@ -97,6 +97,12 @@ function apiRoute(handler: (req: express.Request) => Promise<unknown>) {
     } catch (err) {
       const status = err instanceof Error && 'status' in err ? Number((err as { status: unknown }).status) : 502;
       const errorCode = status === 400 ? 'bad_request' : 'upstream_failed';
+      // ⚠️ Added 2026-09-10 — a 502 here previously left NO trace server-side;
+      // the failure reason only ever reached the client's `detail` field,
+      // which the UI deliberately never shows verbatim (see ErrorScreen's own
+      // doc on why). Without this, a real upstream failure (bad key, OneMap
+      // down, MERaLiON quota) was undebuggable from Vercel's logs alone.
+      if (status !== 400) console.error(`[apiRoute] ${req.method} ${req.path} -> ${status}:`, err);
       res.status(status).json({ error: errorCode, detail: err instanceof Error ? err.message : String(err) });
     }
   };
@@ -264,6 +270,13 @@ app.post(
     const transcription = await transcribeMemoized(body.audioBase64);
     const transcript = transcription.text;
 
+    // ⚠️ TEMPORARY diagnostic logging — added 2026-09-10 to debug a live
+    // "it doesn't hear my voice" report on the deployed app. Remove once
+    // resolved. Logs the transcript text itself (what the user said,
+    // already sent to MERaLiON/Gemini as part of normal operation) — not
+    // audio, not anything not already leaving the server per request.
+    console.log(`[understand] audioBytes=${body.audioBase64.length} transcript=${JSON.stringify(transcript)} isNoSpeech=${isNoSpeech(transcript)}`);
+
     if (isNoSpeech(transcript)) {
       const response: UnderstandResponse = {
         transcript,
@@ -277,6 +290,7 @@ app.post(
     const nearbyContext = nearbyBuildings.map(buildingToPlace);
 
     const extraction = await extractDestination(transcript, nearbyContext);
+    console.log(`[understand] extraction=${JSON.stringify({ isDestinationRequest: extraction.isDestinationRequest, destinationPhrase: extraction.destinationPhrase, lang: extraction.lang })}`);
     // Prefer the DETECTED language over the request's hint once we have one
     // — Gemini's own detection is more likely correct than what the client
     // guessed before hearing anything.
@@ -294,6 +308,7 @@ app.post(
 
     const results = await search(extraction.destinationPhrase);
     const candidates = dedupeByName(results);
+    console.log(`[understand] search results=${results.length} deduped=${candidates.length}`);
 
     let response: UnderstandResponse;
     if (candidates.length === 0) {
