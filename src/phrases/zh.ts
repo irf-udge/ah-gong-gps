@@ -10,6 +10,10 @@
 import type { PhraseBook } from './index';
 
 export const zh: PhraseBook = {
+  // Location
+  determiningLocation: '正在确定您的位置…',
+  locationUnavailable: '无法确定您的位置。请允许定位权限，然后重试。',
+
   // Conversation
   tapToSpeak: '按一下，告诉我你要去哪里',
   listening: '请说',

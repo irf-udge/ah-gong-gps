@@ -11,6 +11,12 @@
 // key to zh without adding it to ms is a type error, which is the point.
 
 export interface PhraseBook {
+  // Location (home screen gate — must resolve before tapToSpeak is reachable)
+  /** Loading text shown with a pulse animation while the initial GPS fix is in flight. */
+  determiningLocation: string;
+  /** Shown with tryAgain's button when the GPS fix fails/denies/times out. */
+  locationUnavailable: string;
+
   // Conversation
   tapToSpeak: string;
   listening: string;

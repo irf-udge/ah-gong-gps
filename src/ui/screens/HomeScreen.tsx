@@ -26,25 +26,44 @@
 // device setup) but nothing is actually recorded, since the fixture path
 // never transcribes real audio. This screen stays a plain presentational
 // button; it doesn't know or care which mode is active.
+//
+// ⚠️ 2026-09-10: a REAL visitor at Singapore Institute of Management asked
+// for directions to Clementi Mall and got routed from Ang Mo Kio — 189
+// minutes away. App.tsx's old per-tap GPS fetch had a 4s timeout and, on
+// any failure, silently substituted the AMK demo fixture as if it were the
+// user's real position, so a slow/denied fix produced a real, wrong route
+// instead of an error. Fix: the mic button (and the rest of "one big
+// button") now stays HIDDEN until App.tsx has a confirmed real fix
+// (`locationStatus === 'ready'`) — see the `locating`/`error` branches
+// below. Demo mode is the one exception: it never had this bug (it never
+// calls real geolocation at all), so it keeps showing the button instantly.
 
 import type { Lang } from '../../core/types';
 import { ms, zh } from '../../phrases';
+import { Icon } from '../components/Icon';
+
+export type LocationStatus = 'locating' | 'ready' | 'error';
 
 export interface HomeScreenProps {
   lang: Lang;
   onSpeak: () => void;
   onChangeLanguage: () => void;
-  /** Demo mode always shows its own fixed "near AMK Hub" text — no real fix to show a judge testing indoors. */
+  /** Demo mode always shows its own fixed "near AMK Hub" text and skips the location gate entirely — no real fix to show a judge testing indoors. */
   demoMode: boolean;
-  /** Nearest building/block name from a real GPS fix. Null while unresolved or unavailable — real mode then shows no location line at all, rather than guessing. Ignored in demo mode. */
+  /** Ignored in demo mode (always treated as 'ready'). Gates the mic button — see file header. */
+  locationStatus: LocationStatus;
+  /** Retry after 'error'. Ignored in demo mode. */
+  onRetryLocation: () => void;
+  /** Nearest building/block name from the real GPS fix. Null when there's no landmark/building nearby to identify the place (or the fix itself is still pending/failed) — real mode then shows no location line at all, rather than guessing. Ignored in demo mode. */
   locationLabel: string | null;
 }
 
-export function HomeScreen({ lang, onSpeak, onChangeLanguage, demoMode, locationLabel }: HomeScreenProps) {
+export function HomeScreen({ lang, onSpeak, onChangeLanguage, demoMode, locationStatus, onRetryLocation, locationLabel }: HomeScreenProps) {
   const book = lang === 'ms' ? ms : zh;
   const locationLine = demoMode
     ? (lang === 'ms' ? 'Anda berhampiran Blk 226, Ang Mo Kio' : '您在宏茂桥第226座附近')
     : locationLabel && (lang === 'ms' ? `Anda berhampiran ${locationLabel}` : `您在${locationLabel}附近`);
+  const ready = demoMode || locationStatus === 'ready';
   return (
     <main className="screen home-screen">
       <header className="brand">
@@ -59,8 +78,22 @@ export function HomeScreen({ lang, onSpeak, onChangeLanguage, demoMode, location
         </button>
       </header>
       <section className="home-copy"><p className="eyebrow">{lang === 'ms' ? 'Jalan dengan tenang' : '轻松出发'}</p><h1>{lang === 'ms' ? 'Ke mana anda mahu pergi?' : '您想去哪里？'}</h1>{locationLine && <p className="location-line">{locationLine}</p>}</section>
-      <button type="button" className="mic-button" aria-label={book.tapToSpeak} onClick={onSpeak}><span className="mic-symbol">●</span><span>{lang === 'ms' ? 'Tekan dan cakap' : '按下，说出目的地'}</span></button>
-      <p className="quick-destinations">AMK Hub　·　Wet market　·　Clinic</p>
+      {ready ? (
+        <>
+          <button type="button" className="mic-button" aria-label={book.tapToSpeak} onClick={onSpeak}><span className="mic-symbol">●</span><span>{lang === 'ms' ? 'Tekan dan cakap' : '按下，说出目的地'}</span></button>
+          <p className="quick-destinations">AMK Hub　·　Wet market　·　Clinic</p>
+        </>
+      ) : locationStatus === 'locating' ? (
+        <section aria-live="polite" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--gap)' }}>
+          <div className="pulse-dot" aria-hidden="true"><Icon name="pin" size={26} /></div>
+          <p className="step-text" style={{ margin: 0, textAlign: 'center' }}>{book.determiningLocation}</p>
+        </section>
+      ) : (
+        <section aria-live="assertive" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--gap)' }}>
+          <p className="step-text" style={{ margin: 0, textAlign: 'center' }}>{book.locationUnavailable}</p>
+          <button type="button" className="btn-primary" style={{ width: '100%' }} onClick={onRetryLocation}>{book.tryAgain}</button>
+        </section>
+      )}
     </main>
   );
 }

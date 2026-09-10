@@ -9,6 +9,10 @@
 import type { PhraseBook } from './index';
 
 export const ms: PhraseBook = {
+  // Location
+  determiningLocation: 'Sedang mengesan lokasi anda…',
+  locationUnavailable: 'Kami tidak dapat mengesan lokasi anda. Sila benarkan akses lokasi, kemudian cuba lagi.',
+
   // Conversation
   tapToSpeak: 'Tekan sini, beritahu saya anda mahu ke mana',
   listening: 'Sila cakap',

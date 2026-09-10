@@ -119,19 +119,36 @@ const DEMO_WALK_SPEED_MPS = 5.5;
 const REAL_RECORD_MS = 5_000;
 
 /**
- * One-shot position fix for /api/understand's `at` and /api/reanchor's `at`.
- * Falls back to the demo origin (AMK Hub area) on denial/timeout/no-geolocation
- * rather than throwing — a judge testing indoors with GPS unavailable should
- * still be able to demo the real pipeline, just anchored to a fixed point
- * instead of their actual location.
+ * One-shot, FRESH position fix for /api/reanchor's `at` — "I'm lost" needs
+ * where the walker is NOW, not the fix `userLocation` (below, in App())
+ * captured back on the home screen before they started walking.
+ *
+ * ⚠️ 2026-09-10: this used to also back /api/understand's `at`, fetched
+ * fresh on every mic tap with a 4s timeout, and fell back to
+ * DEMO_FIXTURE.origin (AMK Hub) on ANY failure — denial, timeout, no
+ * `navigator.geolocation`. A real visitor at Singapore Institute of
+ * Management asked for directions to Clementi Mall and got routed FROM ANG
+ * MO KIO, 189 minutes away: the fix silently didn't arrive in time (or was
+ * denied) and the fallback quietly substituted a fake position instead of
+ * surfacing an error. Real fix is `userLocation`/`locationStatus` in App()
+ * below — the mic button is now simply unreachable until a real fix is
+ * confirmed, so /api/understand no longer needs (or gets) a fallback path
+ * at all. This function keeps the fallback-free shape for reanchor: no
+ * `navigator.geolocation`/denial/timeout REJECTS rather than substituting
+ * a guess, and handleImLost's own catch below already treats that as "keep
+ * the existing route, just reassure" — which is the honest fallback,
+ * unlike silently anchoring a reroute to the wrong city.
  */
 function getCurrentPosition(): Promise<LatLng> {
-  if (!navigator.geolocation) return Promise.resolve(DEMO_FIXTURE.origin);
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation unavailable'));
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(DEMO_FIXTURE.origin),
-      { enableHighAccuracy: true, timeout: 4_000, maximumAge: 0 },
+      (err) => reject(new Error(err.message || 'Unable to determine location')),
+      { enableHighAccuracy: true, timeout: 8_000, maximumAge: 0 },
     );
   });
 }
@@ -189,39 +206,57 @@ export function App() {
   const opts = useMemo(() => readProviderOptions(), []);
   const providers = useMemo(() => createProviders(opts), [opts]);
 
-  // HomeScreen's "you are near X" line. Demo mode keeps its own fixed text
-  // (judges are indoors, no real fix to show) — this only runs for the real
-  // deployed app. One-shot, low-accuracy fix (this is a rough "near you"
-  // label, not a routing anchor — getCurrentPosition() below is the
-  // high-accuracy one used for /api/understand). Deliberately does NOT fall
-  // back to DEMO_FIXTURE.origin on denial/timeout like getCurrentPosition()
-  // does: that fallback exists so the real pipeline stays demoable indoors,
-  // but silently showing a fake nearby address here would just be wrong —
-  // better to show nothing than to claim a location we don't have.
+  // The home-screen location gate. `userLocation` is the anchor /api/understand
+  // plans FROM — see getCurrentPosition()'s file header above for the bug
+  // this replaces (a stale/denied fix silently substituting Ang Mo Kio for
+  // a real visitor's real position). Demo mode never had that bug (it
+  // never touches real geolocation) and keeps working instantly/offline:
+  // both pieces of state start already 'ready', at the fixed demo origin.
+  //
+  // Real mode starts 'locating' and HomeScreen hides the mic button (and
+  // everything else "one big button" competes with — see its own file
+  // header) until this resolves — the button must never be reachable
+  // before a REAL fix exists, that's the whole fix. `locationLabel` is a
+  // second, independent thing built from the same fix: the nearest
+  // building/block name for the "you are near X" line, left null (and the
+  // line simply omitted by HomeScreen) whenever OneMap has no
+  // building/landmark nearby to name — never guessed.
+  const [userLocation, setUserLocation] = useState<LatLng | null>(opts.demoMode ? DEMO_FIXTURE.origin : null);
+  const [locationStatus, setLocationStatus] = useState<'locating' | 'ready' | 'error'>(opts.demoMode ? 'ready' : 'locating');
   const [locationLabel, setLocationLabel] = useState<string | null>(null);
-  useEffect(() => {
-    if (opts.demoMode || !navigator.geolocation) return;
-    let cancelled = false;
+
+  const acquireLocation = useCallback(() => {
+    if (opts.demoMode) return; // already 'ready' at DEMO_FIXTURE.origin above — never re-fetched
+    if (!navigator.geolocation) {
+      setLocationStatus('error');
+      return;
+    }
+    setLocationStatus('locating');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const at: LatLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(at);
+        setLocationStatus('ready');
         providers.places
           .reverseGeocode(at, 100)
           .then((buildings) => {
-            if (cancelled || buildings.length === 0) return;
+            if (buildings.length === 0) return; // no nearby building/landmark — HomeScreen omits the line
             const nearest = buildings.reduce((a, b) => (haversineM(at, b.at) < haversineM(at, a.at) ? b : a));
             const label = nearest.buildingName ?? [nearest.block ? `Blk ${nearest.block}` : null, nearest.road].filter(Boolean).join(', ');
-            if (!cancelled && label) setLocationLabel(label);
+            if (label) setLocationLabel(label);
           })
-          .catch(() => {});
+          .catch(() => {}); // lookup itself failed — same as "nothing nearby": omit the line, routing already has userLocation
       },
-      () => {}, // denied/unavailable — leave locationLabel null, HomeScreen just omits the line
-      { enableHighAccuracy: false, timeout: 8_000, maximumAge: 60_000 },
+      () => setLocationStatus('error'), // denied/unavailable/timed out — HomeScreen shows locationUnavailable + a retry button, never a silent guess
+      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 0 },
     );
-    return () => {
-      cancelled = true;
-    };
   }, [opts.demoMode, providers.places]);
+
+  // Kick off the very first fix on mount. Never retried automatically after
+  // that — only the retry button (onRetryLocation -> acquireLocation) does.
+  useEffect(() => {
+    acquireLocation();
+  }, [acquireLocation]);
 
   // `lang` itself stays ALWAYS a valid Lang (never null) — every closure
   // below that needs it (runDemoFlow, runRealFlow, resolveAndStart,
@@ -406,7 +441,13 @@ export function App() {
       if (flowIdRef.current !== myFlowId) return;
       if (!granted) throw new Error('Microphone permission is required to speak your destination');
 
-      const at = await getCurrentPosition();
+      // Not a fresh fetch — see getCurrentPosition()'s file header for why
+      // that used to be here (and the wrong-city bug it caused). HomeScreen
+      // only ever renders the mic button once locationStatus === 'ready',
+      // so userLocation is guaranteed non-null on every real path into this
+      // function; the throw below is a defensive backstop, not normal.
+      if (!userLocation) throw new Error('Location not yet determined');
+      const at = userLocation;
       if (flowIdRef.current !== myFlowId) return;
       clarifyOriginRef.current = at;
 
@@ -448,7 +489,7 @@ export function App() {
       if (flowIdRef.current !== myFlowId) return;
       dispatch({ type: 'ERROR', message: err instanceof Error ? err.message : String(err) });
     }
-  }, [lang, resolveAndStart]);
+  }, [lang, resolveAndStart, userLocation]);
 
   // Speak the clarify question aloud, then wait — ClarifyScreen's own doc:
   // "speak the question aloud... and wait; do not just show text."
@@ -623,7 +664,7 @@ export function App() {
 
   switch (state.phase) {
     case 'idle':
-      return <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} demoMode={opts.demoMode} locationLabel={locationLabel} />;
+      return <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} demoMode={opts.demoMode} locationStatus={locationStatus} onRetryLocation={acquireLocation} locationLabel={locationLabel} />;
 
     case 'listening':
     case 'resolving':
@@ -644,11 +685,11 @@ export function App() {
       );
 
     case 'ready':
-      return state.journey ? <ConfirmationScreen journey={state.journey} lang={lang} onStart={handleStartJourney} onChange={handleReset} /> : <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} demoMode={opts.demoMode} locationLabel={locationLabel} />;
+      return state.journey ? <ConfirmationScreen journey={state.journey} lang={lang} onStart={handleStartJourney} onChange={handleReset} /> : <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} demoMode={opts.demoMode} locationStatus={locationStatus} onRetryLocation={acquireLocation} locationLabel={locationLabel} />;
 
     case 'navigating': {
       const step = state.journey?.steps[state.currentStepIndex];
-      if (!state.journey || !step) return <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} demoMode={opts.demoMode} locationLabel={locationLabel} />; // defensive — shouldn't happen
+      if (!state.journey || !step) return <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} demoMode={opts.demoMode} locationStatus={locationStatus} onRetryLocation={acquireLocation} locationLabel={locationLabel} />; // defensive — shouldn't happen
       // Resolved here, not in JourneyScreen — it already gets `step` and
       // this is the one place that also has `state.journey.landmarks` to
       // look it up against. Only used to refine the instruction icon; see
@@ -671,7 +712,7 @@ export function App() {
       return state.journey ? (
         <ArrivedScreen lang={lang} destination={state.journey.destination} onHome={handleReset} />
       ) : (
-        <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} demoMode={opts.demoMode} locationLabel={locationLabel} />
+        <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} demoMode={opts.demoMode} locationStatus={locationStatus} onRetryLocation={acquireLocation} locationLabel={locationLabel} />
       );
 
     case 'error':
