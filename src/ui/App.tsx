@@ -53,6 +53,7 @@ import { initialState, reduce, shouldAdvance } from '../journey/machine';
 import { createLocationProvider, createProviders, readProviderOptions } from '../providers';
 import { buildDemoJourney, buildDemoRejected, buildDemoScoredRoute, DEMO_FIXTURE } from '../providers/fixtures';
 import type { LocationProvider } from '../providers/types';
+import type { Recorder } from '../audio/capture';
 import { blobToBase64, createRecorder, requestMicPermission } from '../audio/capture';
 import { ms, zh } from '../phrases';
 import { ArrivedScreen } from './screens/ArrivedScreen';
@@ -89,8 +90,15 @@ const DEMO_LISTEN_MS = 2500;
  * the current step's speech has actually finished (or been deliberately
  * cancelled, e.g. by "I'm lost"), so an unusually long instruction can
  * never be cut off no matter what this number is set to.
+ *
+ * ⚠️ 2026-09-10: dropped again, 5 -> 3.5 (12.6 km/h) — ttsSpeakingRef already
+ * makes it IMPOSSIBLE for speech to be cut off regardless of this number, so
+ * this second drop is pure presentation pacing, not a correctness fix: at 5,
+ * a longer instruction sentence still finishes only moments before the next
+ * geofence arms, reading as rushed on stage. 3.5 leaves a comfortable gap
+ * (a real ~700m route now finishes in ~3-4 min instead of ~2-3).
  */
-const DEMO_WALK_SPEED_MPS = 5;
+const DEMO_WALK_SPEED_MPS = 3.5;
 
 /**
  * Real (non-demo) recording window. No push-to-talk/stop button exists —
@@ -208,6 +216,20 @@ export function App() {
   }, [state.phase]);
   useEffect(() => () => locationRef.current?.stop(), []);
 
+  // The recorder currently capturing for runRealFlow, if any — lets
+  // handleSayAgain abandon a take that's still in progress (mic held open,
+  // buffer accumulating) instead of leaving it to finish and race the new
+  // one. See handleSayAgain below.
+  const activeRecorderRef = useRef<Recorder | null>(null);
+  useEffect(() => () => activeRecorderRef.current?.cancel(), []);
+
+  // Bumped by every runRealFlow/runDemoFlow call. A run captures its own id
+  // and checks it before each dispatch past an await — if handleSayAgain (or
+  // another tap) started a newer run in the meantime, the stale one's
+  // eventual /api/understand or /api/journey response is discarded instead
+  // of clobbering whatever the fresh run has already put on screen.
+  const flowIdRef = useRef(0);
+
   // ⚠️ 2026-09-10: true for exactly as long as SOME utterance from any
   // speakTracked() call below is in flight — read by startSimulatedWalk's
   // position callback to hold STEP_ADVANCE until the current step's speech
@@ -240,29 +262,6 @@ export function App() {
       // Speech failing shouldn't block navigation — the visible step text is still there.
     });
   }, [state.phase, state.currentStepIndex, state.journey, speakTracked]);
-
-  // Speak the clarify question aloud, then wait — ClarifyScreen's own doc:
-  // "speak the question aloud... and wait; do not just show text."
-  // machine.ts's comment says the orchestration layer dispatches SAY_AGAIN
-  // right after speaking so listening resumes automatically — true for the
-  // plain "didn't catch that" case (no candidates), but NOT when there are
-  // real tappable options: auto-restarting listening there would yank the
-  // candidate buttons off screen before anyone could tap one, defeating
-  // ClarifyScreen's whole reason to exist. So: auto-resume only when there's
-  // nothing to tap; otherwise genuinely wait for onPick/onSayAgain.
-  useEffect(() => {
-    if (state.phase !== 'clarifying' || !state.clarifyQuestion) return;
-    const hasCandidates = state.clarifyCandidates.length > 0;
-    let cancelled = false;
-    void speakTracked(state.clarifyQuestion, lang)
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled && !hasCandidates) dispatch({ type: 'SAY_AGAIN' });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [state.phase, state.clarifyQuestion, state.clarifyCandidates, lang, speakTracked]);
 
   const startSimulatedWalk = useCallback(
     (journey: Journey) => {
@@ -297,12 +296,14 @@ export function App() {
   );
 
   const runDemoFlow = useCallback(async () => {
+    const myFlowId = ++flowIdRef.current;
     try {
       // Best-effort only — demo mode never transcribes real audio, so a
       // denial (or no mic at all) must not block the fixture-only path.
       void requestMicPermission().catch(() => {});
 
       await new Promise((resolve) => setTimeout(resolve, DEMO_LISTEN_MS));
+      if (flowIdRef.current !== myFlowId) return;
       const demoLangKey = lang === 'ms' ? 'ms' : 'zh';
       dispatch({ type: 'TRANSCRIPT', text: DEMO_FIXTURE.transcript[demoLangKey] });
 
@@ -317,6 +318,7 @@ export function App() {
       // since handleStartJourney's own startSimulatedWalk() call stops and
       // cleanly restarts it from position 0, but wasted work.
     } catch (err) {
+      if (flowIdRef.current !== myFlowId) return;
       dispatch({ type: 'ERROR', message: err instanceof Error ? err.message : String(err) });
     }
   }, [lang]);
@@ -355,17 +357,28 @@ export function App() {
    * throw away destination/clarify and force a second, wasted round trip.
    */
   const runRealFlow = useCallback(async () => {
+    const myFlowId = ++flowIdRef.current;
     try {
       const granted = await requestMicPermission();
+      if (flowIdRef.current !== myFlowId) return;
       if (!granted) throw new Error('Microphone permission is required to speak your destination');
 
       const at = await getCurrentPosition();
+      if (flowIdRef.current !== myFlowId) return;
       clarifyOriginRef.current = at;
 
+      // Fresh buffer every run: a leftover recorder from a take this flow is
+      // superseding (see handleSayAgain) has already been cancelled there,
+      // but guard here too in case anything else ever calls runRealFlow
+      // while one is still active.
+      activeRecorderRef.current?.cancel();
       const recorder = createRecorder();
+      activeRecorderRef.current = recorder;
       await recorder.start();
       await new Promise((resolve) => setTimeout(resolve, REAL_RECORD_MS));
       const wav = await recorder.stop();
+      if (activeRecorderRef.current === recorder) activeRecorderRef.current = null;
+      if (flowIdRef.current !== myFlowId) return;
       const audioBase64 = await blobToBase64(wav);
 
       const understandBody: UnderstandRequest = { audioBase64, lang, at };
@@ -376,20 +389,52 @@ export function App() {
       });
       if (!res.ok) throw new Error(`/api/understand failed: ${res.status} ${await res.text()}`);
       const understanding = (await res.json()) as UnderstandResponse;
+      if (flowIdRef.current !== myFlowId) return;
 
       dispatch({ type: 'TRANSCRIPT', text: understanding.transcript });
 
       if (understanding.destination) {
         await resolveAndStart(understanding.destination, at);
       } else if (understanding.clarify) {
+        if (flowIdRef.current !== myFlowId) return;
         dispatch({ type: 'CLARIFY', question: understanding.clarify.question, candidates: understanding.clarify.candidates });
       } else {
         throw new Error('/api/understand returned neither a destination nor a clarify question');
       }
     } catch (err) {
+      if (flowIdRef.current !== myFlowId) return;
       dispatch({ type: 'ERROR', message: err instanceof Error ? err.message : String(err) });
     }
   }, [lang, resolveAndStart]);
+
+  // Speak the clarify question aloud, then wait — ClarifyScreen's own doc:
+  // "speak the question aloud... and wait; do not just show text."
+  // machine.ts's comment says the orchestration layer dispatches SAY_AGAIN
+  // right after speaking so listening resumes automatically — true for the
+  // plain "didn't catch that" case (no candidates), but NOT when there are
+  // real tappable options: auto-restarting listening there would yank the
+  // candidate buttons off screen before anyone could tap one, defeating
+  // ClarifyScreen's whole reason to exist. So: auto-resume only when there's
+  // nothing to tap; otherwise genuinely wait for onPick/onSayAgain.
+  useEffect(() => {
+    if (state.phase !== 'clarifying' || !state.clarifyQuestion) return;
+    const hasCandidates = state.clarifyCandidates.length > 0;
+    let cancelled = false;
+    void speakTracked(state.clarifyQuestion, lang)
+      .catch(() => {})
+      .finally(() => {
+        if (cancelled || hasCandidates) return;
+        // Same fix as handleSayAgain below: SAY_AGAIN alone only flips the
+        // UI to `listening`, it doesn't record anything — this auto-resume
+        // has to actually kick off a fresh take too, or this comment's own
+        // claim ("listening resumes automatically") stays false.
+        dispatch({ type: 'SAY_AGAIN' });
+        void (opts.demoMode ? runDemoFlow() : runRealFlow());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [state.phase, state.clarifyQuestion, state.clarifyCandidates, lang, speakTracked, opts.demoMode, runDemoFlow, runRealFlow]);
 
   const handleSpeak = useCallback(() => {
     // MUST be synchronous, first thing in the raw click handler — see
@@ -400,7 +445,21 @@ export function App() {
     void (opts.demoMode ? runDemoFlow() : runRealFlow());
   }, [providers.tts, opts.demoMode, runDemoFlow, runRealFlow]);
 
-  const handleSayAgain = useCallback(() => dispatch({ type: 'SAY_AGAIN' }), []);
+  // ⚠️ 2026-09-10: used to just dispatch SAY_AGAIN, which only flips the UI
+  // to `listening` — machine.ts's reduce() has no side effect wired to that
+  // event, so nothing actually restarted the mic. Now mirrors handleSpeak:
+  // cancels any take still in flight (fresh buffer) and kicks off a real
+  // recording; flowIdRef in runRealFlow/runDemoFlow stops the abandoned
+  // take's eventual response from landing on top of this new one.
+  const handleSayAgain = useCallback(() => {
+    activeRecorderRef.current?.cancel();
+    activeRecorderRef.current = null;
+    // Same reasoning as handleSpeak: must run synchronously in the raw click
+    // handler for iOS to accept the later speak() calls as user-gesture-primed.
+    providers.tts.primeForUserGesture();
+    dispatch({ type: 'SAY_AGAIN' });
+    void (opts.demoMode ? runDemoFlow() : runRealFlow());
+  }, [providers.tts, opts.demoMode, runDemoFlow, runRealFlow]);
   const handleReset = useCallback(() => dispatch({ type: 'RESET' }), []);
   const handleStartJourney = useCallback(() => {
     const journey = stateRef.current.journey;
@@ -576,13 +635,11 @@ export function App() {
       // ⚠️ 2026-09-10: used to fall into the 'lost'/'planning' default below
       // (ListeningScreen thinking=true) — a silent mic-pulse spinner
       // indistinguishable from "still working," with no visible reason to
-      // tap "say it again" and no indication anything had failed at all.
-      // SAY_AGAIN itself already worked (it's a universal event in
-      // machine.ts's reduce(), handled before the phase switch, for every
-      // phase including this one) — the only bug was that the UI never
-      // showed the user there was a real failure to escape from. See
-      // ErrorScreen.tsx's own header for the rest of the reasoning.
-      return <ErrorScreen lang={lang} onSayAgain={handleSayAgain} />;
+      // tap anything and no indication anything had failed at all. Recovers
+      // via handleReset (RESET -> idle), not handleSayAgain — see
+      // ErrorScreen.tsx's own header for why a genuine error shouldn't
+      // auto-restart the mic straight back into the same failure.
+      return <ErrorScreen lang={lang} onTryAgain={handleReset} />;
 
     default:
       // 'planning' (never set by reduce() — see machine.ts) and 'lost'

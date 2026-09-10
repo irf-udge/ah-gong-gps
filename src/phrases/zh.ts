@@ -16,6 +16,7 @@ export const zh: PhraseBook = {
   thinking: '请稍等',
   sayAgain: '请再说一次',
   notUnderstood: '我听不清楚，请再说一次',
+  tryAgain: '重新开始',
   confirmDestination: '您是要去{place}吗？',
   planning: '好，我帮您找去{place}的路',
 

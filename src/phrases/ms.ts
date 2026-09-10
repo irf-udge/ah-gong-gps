@@ -15,6 +15,7 @@ export const ms: PhraseBook = {
   thinking: 'Sila tunggu sebentar',
   sayAgain: 'Sila cakap sekali lagi',
   notUnderstood: 'Saya tidak dengar dengan jelas, sila cakap sekali lagi',
+  tryAgain: 'Cuba lagi',
   confirmDestination: 'Anda mahu pergi ke {place}?',
   planning: 'Baik, saya cari jalan ke {place}',
 

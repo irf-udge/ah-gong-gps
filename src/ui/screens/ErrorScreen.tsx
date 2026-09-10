@@ -4,19 +4,24 @@
 // network call threw, mic permission was denied, ...). This used to fall
 // through to the SAME fallback as "still working" (ListeningScreen with
 // thinking=true): a silent mic-pulse spinner with no sign anything had gone
-// wrong, and no visible reason to tap "say it again." "Say it again" itself
-// already worked (SAY_AGAIN is a universal event handled before the phase
-// switch in journey/machine.ts's reduce(), for every phase including
-// 'error') — the bug was purely that nothing on screen told the user there
-// was anything to escape from, so a real failure read as an unresponsive
-// app with the only fix being a reload. CONTRACTS.md § 8: "Error tolerance
-// everywhere... always offer say it again" — this screen IS that offer,
-// made visible instead of invisible. Deliberately reuses book.notUnderstood
-// rather than a new phrase: this app's whole error philosophy is "assume
-// mis-transcription everywhere" (this file's own machine.ts header) — never
-// surface a raw technical message (network error, permission denial, ...)
-// to a low-literacy senior, just the same honest "didn't catch that, try
-// again" framing used everywhere else.
+// wrong, and no visible reason to tap anything. CONTRACTS.md § 8: "Error
+// tolerance everywhere" — this screen is that: a clearly-labelled failure
+// state with a real way out. Deliberately reuses book.notUnderstood rather
+// than a new phrase: this app's whole error philosophy is "assume
+// mis-transcription everywhere" (machine.ts's own header) — never surface a
+// raw technical message (network error, permission denial, ...) to a
+// low-literacy senior, just the same honest "didn't catch that" framing used
+// everywhere else.
+//
+// ⚠️ 2026-09-10: the button used to be "say it again" (SAY_AGAIN — re-listen
+// immediately, straight back into a live mic recording). Changed to "Try
+// Again" (RESET — back to the idle/home screen) instead: from a genuine
+// error (as opposed to ListeningScreen's own onSayAgain, used for an honest
+// "didn't catch that" with nothing actually broken), auto-restarting the mic
+// can walk straight back into the same failure with no chance to fix
+// whatever caused it (e.g. a denied mic permission needs the OS-level
+// prompt/settings addressed first, not another getUserMedia call) — RESET
+// gives the user a stable, known-good screen to act from instead.
 
 import type { Lang } from '../../core/types';
 import { ms, zh } from '../../phrases';
@@ -24,10 +29,10 @@ import { Icon } from '../components/Icon';
 
 export interface ErrorScreenProps {
   lang: Lang;
-  onSayAgain: () => void;
+  onTryAgain: () => void;
 }
 
-export function ErrorScreen({ lang, onSayAgain }: ErrorScreenProps) {
+export function ErrorScreen({ lang, onTryAgain }: ErrorScreenProps) {
   const book = lang === 'ms' ? ms : zh;
 
   return (
@@ -41,8 +46,8 @@ export function ErrorScreen({ lang, onSayAgain }: ErrorScreenProps) {
           {book.notUnderstood}
         </p>
       </section>
-      <button type="button" className="btn-primary" style={{ width: '100%' }} onClick={onSayAgain}>
-        {book.sayAgain}
+      <button type="button" className="btn-primary" style={{ width: '100%' }} onClick={onTryAgain}>
+        {book.tryAgain}
       </button>
     </main>
   );

@@ -18,6 +18,8 @@ export interface PhraseBook {
   thinking: string;
   sayAgain: string;
   notUnderstood: string;
+  /** ErrorScreen's recovery button — resets to idle/home, distinct from sayAgain (which re-listens immediately). */
+  tryAgain: string;
   /** {place} */
   confirmDestination: string;
   /** {place} */
