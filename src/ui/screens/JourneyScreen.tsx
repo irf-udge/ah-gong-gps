@@ -14,10 +14,10 @@
 // current-step instruction above. Still no list of upcoming turns anywhere
 // on this screen.
 
-import type { Lang, Step } from '../../core/types';
+import type { Landmark, Lang, Step } from '../../core/types';
 import { ms, zh } from '../../phrases';
 import { RoutePreview } from '../components/RoutePreview';
-import { Icon } from '../components/Icon';
+import { Icon, type IconName } from '../components/Icon';
 import { Trail } from '../components/Trail';
 
 export interface JourneyScreenProps {
@@ -28,15 +28,61 @@ export interface JourneyScreenProps {
   onImLost: () => void;
   onRepeat: () => void;
   route?: import('../../core/types').LatLng[];
+  /** The real landmark this step anchors to (Journey.landmarks, looked up by step.landmarkId) — used ONLY to refine the icon when its category is unambiguous. Optional/defensive: the icon still degrades to a correct directional one if this is missing. */
+  landmark?: Landmark;
   onPause?: () => void;
   paused?: boolean;
 }
 
-export function JourneyScreen({ lang, step, stepCount, onImLost, onRepeat, route, onPause, paused }: JourneyScreenProps) {
+/**
+ * ⚠️ 2026-09-10: this used to be `step.index === 0 ? 'bus' : step.index === 1
+ * ? 'store' : 'coffee'` — picked by POSITION IN THE ROUTE, not by what the
+ * step actually says. A right turn on step 2 got a coffee cup; a landmark
+ * that was a hospital got a shopfront. For a low-literacy user the icon can
+ * carry MORE weight than the text, so a wrong one actively misleads rather
+ * than just looking odd.
+ *
+ * `step.action` decides it for any real turn/crossing/arrival — that IS the
+ * instruction, it's never wrong, and showing the landmark's icon instead
+ * would wrongly imply the landmark is what to do ("turn right at the bus
+ * stop" is an instruction to turn right, not an instruction about a bus).
+ * The one exception is `'start'`: the very first step has no turn to depict
+ * at all ("walk to X"), so there the landmark's own category — when
+ * confident — is the more useful icon than a generic "head this way" arrow.
+ * Confident is deliberately narrow: bus_stop and hawker are the only kinds
+ * with an unambiguous existing icon (a bus shelter unmistakably reads as
+ * "bus stop," a hawker centre as "food"). Every other kind (bench, toilet,
+ * lift, community, park, eldercare, hospital, pharmacy, polyclinic, generic
+ * building/block) has no confident dedicated icon here — rather than force
+ * one of the existing icons onto a landmark it doesn't actually depict
+ * (exactly the bug this replaces), those fall through to the neutral
+ * directional icon, same as a landmark-less `start` step.
+ */
+function resolveInstructionIcon(step: Step, landmark: Landmark | undefined): IconName {
+  switch (step.action) {
+    case 'arrive':
+      return 'check';
+    case 'left':
+      return 'arrow-left';
+    case 'right':
+      return 'arrow-right';
+    case 'cross':
+      return 'cross';
+    case 'start':
+      if (landmark?.kind === 'bus_stop') return 'bus';
+      if (landmark?.kind === 'hawker') return 'coffee';
+      return 'arrow-up';
+    case 'straight':
+    default:
+      return 'arrow-up';
+  }
+}
+
+export function JourneyScreen({ lang, step, stepCount, onImLost, onRepeat, route, landmark, onPause, paused }: JourneyScreenProps) {
   const book = lang === 'ms' ? ms : zh;
   const lostLabel = lang === 'ms' ? 'Saya sesat' : '我迷路了';
   const currentStep = Math.min(step.index + 1, stepCount);
-  const instructionIcon = step.action === 'arrive' ? 'check' : step.index === 0 ? 'bus' : step.index === 1 ? 'store' : 'coffee';
+  const instructionIcon = resolveInstructionIcon(step, landmark);
 
   return (
     <main className="screen" style={{ justifyContent: 'space-between' }}>

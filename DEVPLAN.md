@@ -902,3 +902,67 @@ deployment, `true` locally) — no available tool can set them, so the real
 (non-demo) pipeline will 502 on Vercel until they're added by hand via the
 dashboard. `?demo=1` needs none of them and was live-verified working end
 to end on the actual production URL.
+
+### 2026-09-10 — three demo-breaking defects fixed (user-reported)
+
+1. **`error` phase stranded the user, DEMO-BREAKING.** It fell into the same
+   fallback as "still working" (`ListeningScreen` with `thinking=true`) — a
+   silent mic-pulse spinner with no sign anything had failed and no visible
+   reason to tap "say it again." `SAY_AGAIN` itself already worked correctly
+   (it's a universal event in `journey/machine.ts`'s `reduce()`, handled
+   before the phase switch, for every phase including `error` — confirmed by
+   reading the reducer directly) — the actual bug was purely that the UI
+   never told the user there was a failure to escape from. Fixed with a new
+   `ErrorScreen` (alert icon, `book.notUnderstood` — reusing the existing
+   phrase rather than adding a new one, since "assume mis-transcription
+   everywhere" is already this app's whole error philosophy and a raw
+   technical error message should never reach a low-literacy senior).
+   Live-verified: denied mic permission → `ErrorScreen` renders with a clear
+   red alert icon and message → "say it again" correctly returns to
+   `listening`. `lost`/`planning` deliberately still use the old fallback —
+   "lost" genuinely IS "still figuring out where you are," not an error.
+2. **`DEMO_WALK_SPEED_MPS = 20` (72 km/h) made every step illegible,
+   DEMO-BREAKING.** Steps advanced faster than the display text could be
+   read, and `BrowserTts.speak()` always cancels whatever's still playing
+   before starting the next utterance (tts.ts's own doc: "must never stack
+   overlapping audio") — so every step's speech got cut off mid-sentence,
+   hiding the "walked one landmark at a time, out loud" feature the demo
+   exists to show. Two-part fix: dropped the constant to 5 (18 km/h, still a
+   visible fast-forward — a real ~700m route now finishes in ~2-3 min
+   instead of ~12), AND added `ttsSpeakingRef` (set by a new shared
+   `speakTracked()` wrapper around every `providers.tts.speak()` call in
+   `App.tsx`) so `startSimulatedWalk`'s position callback holds
+   `STEP_ADVANCE`/`ARRIVED` until the current step's speech has actually
+   finished — naturally, or via a deliberate `cancel()` (e.g. "I'm lost"),
+   which resolves rather than rejects, so this never gets stuck. This is
+   enforced directly now, not just hoped for by tuning a constant.
+   Live-verified two ways: the real demo route (correct pacing, correct
+   audio timing) and, more rigorously, a mocked `speechSynthesis` with a
+   fixed 4-second "utterance" per step — confirmed via a logged timeline
+   that each mocked utterance ran to full completion (`end` fired at
+   ~4014ms and ~4011ms, never cut short) and the next step's speech only
+   started ~500ms after the previous one finished (one `SimulatedProvider`
+   tick of latency — the gate re-checks every tick, so this is the minimum
+   possible delay, not a stall).
+3. **Step icons were chosen by index, not meaning.** `step.index === 0 ?
+   'bus' : step.index === 1 ? 'store' : 'coffee'` — a right turn on step 2
+   got a coffee cup; a landmark that was a hospital got a shopfront. For a
+   low-literacy user the icon can carry MORE weight than the text, so a
+   wrong one actively misleads rather than just looking odd. Replaced with
+   `resolveInstructionIcon(step, landmark)`: `step.action` decides it for
+   any real turn/crossing/arrival (that IS the instruction, never wrong;
+   showing the landmark's icon instead would wrongly imply the landmark is
+   what to do). The one exception is `'start'` — the very first step has no
+   turn to depict at all ("walk to X"), so there the landmark's own
+   category, when confident, is more useful than a generic arrow. "Confident"
+   stayed deliberately narrow: `bus_stop`→bus and `hawker`→coffee are the
+   only two `LandmarkKind`s with an unambiguous existing icon; every other
+   kind falls through to a neutral directional icon rather than forcing a
+   misleading specific one onto it (per the explicit ask). Added four new
+   icons to `Icon.tsx` (`arrow-up`/`arrow-left`/`arrow-right`/`cross` — a
+   simple pedestrian pictogram) since none existed before; `App.tsx` now
+   resolves the step's actual `Landmark` (via `Journey.landmarks.find` on
+   `step.landmarkId`) and passes it down, a new optional
+   `JourneyScreenProps.landmark`. Live-verified across a full walk: `start`
+   + hawker landmark → coffee icon, `right` → right-arrow (not the old
+   arbitrary "store"), `cross` → the new pedestrian icon.

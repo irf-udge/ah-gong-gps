@@ -59,6 +59,7 @@ import { ArrivedScreen } from './screens/ArrivedScreen';
 import { ClarifyScreen } from './screens/ClarifyScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { JourneyScreen } from './screens/JourneyScreen';
+import { ErrorScreen } from './screens/ErrorScreen';
 import { JudgeView } from './screens/JudgeView';
 import { LanguageScreen } from './screens/LanguageScreen';
 import { ListeningScreen } from './screens/ListeningScreen';
@@ -71,11 +72,25 @@ const DEMO_LISTEN_MS = 2500;
 /**
  * Playback speed for the simulated walk. NOT SIM_SPEED_MPS's realistic 1x —
  * that's ~12 minutes for a real ~700m route, found live wiring this up.
- * 20x (verified safe against GEOFENCE_RADIUS_M/TICK_MS earlier this session)
- * walks a ~700m route in well under a minute — long enough to actually watch
- * steps advance on stage, not so long it stalls the demo.
+ *
+ * ⚠️ 2026-09-10: was 20 (72 km/h) — a real, demo-breaking bug, not just an
+ * aggressive tuning choice. At that speed steps advanced faster than a
+ * senior could read the display text, and faster than TTS could finish
+ * speaking it — `BrowserTts.speak()` always cancels whatever's still
+ * playing before starting the next utterance (see tts.ts's own doc: "must
+ * never stack overlapping audio"), so on stage this meant EVERY step's
+ * speech got cut off mid-sentence by the next advance, hiding the exact
+ * "walked one landmark at a time, out loud" feature the demo exists to
+ * show. Dropped to 5 (18 km/h) — still a visible fast-forward (a real
+ * ~700m route finishes in ~2-3 min instead of ~12), slow enough that a
+ * normal instruction sentence finishes speaking before the next geofence
+ * is reached. Also now enforced directly, not just hoped for by tuning
+ * this constant — see ttsSpeakingRef below, which holds STEP_ADVANCE until
+ * the current step's speech has actually finished (or been deliberately
+ * cancelled, e.g. by "I'm lost"), so an unusually long instruction can
+ * never be cut off no matter what this number is set to.
  */
-const DEMO_WALK_SPEED_MPS = 20;
+const DEMO_WALK_SPEED_MPS = 5;
 
 /**
  * Real (non-demo) recording window. No push-to-talk/stop button exists —
@@ -193,6 +208,27 @@ export function App() {
   }, [state.phase]);
   useEffect(() => () => locationRef.current?.stop(), []);
 
+  // ⚠️ 2026-09-10: true for exactly as long as SOME utterance from any
+  // speakTracked() call below is in flight — read by startSimulatedWalk's
+  // position callback to hold STEP_ADVANCE until the current step's speech
+  // has actually finished (naturally, or via a deliberate cancel(), e.g.
+  // "I'm lost" — BrowserTts.speak() resolves rather than rejects on a
+  // deliberate cancel, so this clears either way, never gets stuck).
+  // Without this, the simulated walk could out-pace TTS and cut a step's
+  // speech off mid-sentence purely by reaching the next geofence first —
+  // real bug, found live, independent of how slow DEMO_WALK_SPEED_MPS is
+  // tuned (see its own doc comment for the full story).
+  const ttsSpeakingRef = useRef(false);
+  const speakTracked = useCallback(
+    (text: string, spokenLang: Lang) => {
+      ttsSpeakingRef.current = true;
+      return providers.tts.speak(text, spokenLang).finally(() => {
+        ttsSpeakingRef.current = false;
+      });
+    },
+    [providers.tts],
+  );
+
   // Speak the current step whenever navigation enters it — fires on the
   // initial ready->navigating transition too, since state.phase is one of
   // the deps and currentStepIndex is already 0 by then (set by RESOLVED).
@@ -200,10 +236,10 @@ export function App() {
     if (state.phase !== 'navigating' || !state.journey) return;
     const step = state.journey.steps[state.currentStepIndex];
     if (!step) return;
-    providers.tts.speak(step.spokenText, state.journey.lang).catch(() => {
+    speakTracked(step.spokenText, state.journey.lang).catch(() => {
       // Speech failing shouldn't block navigation — the visible step text is still there.
     });
-  }, [state.phase, state.currentStepIndex, state.journey, providers.tts]);
+  }, [state.phase, state.currentStepIndex, state.journey, speakTracked]);
 
   // Speak the clarify question aloud, then wait — ClarifyScreen's own doc:
   // "speak the question aloud... and wait; do not just show text."
@@ -218,8 +254,7 @@ export function App() {
     if (state.phase !== 'clarifying' || !state.clarifyQuestion) return;
     const hasCandidates = state.clarifyCandidates.length > 0;
     let cancelled = false;
-    void providers.tts
-      .speak(state.clarifyQuestion, lang)
+    void speakTracked(state.clarifyQuestion, lang)
       .catch(() => {})
       .finally(() => {
         if (!cancelled && !hasCandidates) dispatch({ type: 'SAY_AGAIN' });
@@ -227,7 +262,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [state.phase, state.clarifyQuestion, state.clarifyCandidates, lang, providers.tts]);
+  }, [state.phase, state.clarifyQuestion, state.clarifyCandidates, lang, speakTracked]);
 
   const startSimulatedWalk = useCallback(
     (journey: Journey) => {
@@ -242,6 +277,11 @@ export function App() {
         // this once, but currentStepIndex/journey change on every advance.
         const current = stateRef.current;
         if (current.phase !== 'navigating' || !current.journey) return;
+        // Hold every advance — including arrival — until the current step's
+        // speech has actually finished (or been deliberately cancelled).
+        // Re-checked on every position tick (every TICK_MS), so this adds at
+        // most one tick of latency once speech naturally ends, not a stall.
+        if (ttsSpeakingRef.current) return;
 
         if (haversineM(position.at, current.journey.destination.at) <= GEOFENCE_RADIUS_M) {
           locationRef.current?.stop();
@@ -397,7 +437,7 @@ export function App() {
       if (opts.demoMode) {
         const demoLangKey = journey.lang === 'ms' ? 'ms' : 'zh';
         const book = demoLangKey === 'ms' ? ms : zh;
-        await providers.tts.speak(book.recalculating, journey.lang).catch(() => {});
+        await speakTracked(book.recalculating, journey.lang).catch(() => {});
         dispatch({ type: 'REANCHORED', journey: null });
         // ⚠️ REANCHORED with journey:null returns to `navigating` WITHOUT
         // touching locationRef — but the phase!==navigating cleanup effect
@@ -424,7 +464,7 @@ export function App() {
         });
         if (!res.ok) throw new Error(`/api/reanchor failed: ${res.status} ${await res.text()}`);
         const data = (await res.json()) as ReanchorResponse;
-        await providers.tts.speak(data.spokenText, journey.lang).catch(() => {});
+        await speakTracked(data.spokenText, journey.lang).catch(() => {});
         dispatch({ type: 'REANCHORED', journey: data.journey });
         // Same restart-required gap as the demo branch above — whichever
         // journey we end up tracking (the re-routed one, or the original if
@@ -441,7 +481,7 @@ export function App() {
         startSimulatedWalk(journey);
       }
     })();
-  }, [opts.demoMode, providers.tts, startSimulatedWalk]);
+  }, [opts.demoMode, speakTracked, startSimulatedWalk]);
 
   const handleChooseLang = useCallback((picked: Lang) => {
     writeStoredLang(picked);
@@ -507,14 +547,20 @@ export function App() {
     case 'navigating': {
       const step = state.journey?.steps[state.currentStepIndex];
       if (!state.journey || !step) return <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} />; // defensive — shouldn't happen
+      // Resolved here, not in JourneyScreen — it already gets `step` and
+      // this is the one place that also has `state.journey.landmarks` to
+      // look it up against. Only used to refine the instruction icon; see
+      // JourneyScreen's own resolveInstructionIcon for why it's optional.
+      const landmark = state.journey.landmarks.find((l) => l.id === step.landmarkId);
       return (
         <JourneyScreen
           lang={lang}
           step={step}
           stepCount={state.journey.steps.length}
           onImLost={handleImLost}
-          onRepeat={() => providers.tts.speak(step.spokenText, lang).catch(() => {})}
+          onRepeat={() => speakTracked(step.spokenText, lang).catch(() => {})}
           route={state.journey.route.candidate.polyline}
+          landmark={landmark}
         />
       );
     }
@@ -526,10 +572,23 @@ export function App() {
         <HomeScreen lang={lang} onSpeak={handleSpeak} onChangeLanguage={handleChangeLanguage} />
       );
 
+    case 'error':
+      // ⚠️ 2026-09-10: used to fall into the 'lost'/'planning' default below
+      // (ListeningScreen thinking=true) — a silent mic-pulse spinner
+      // indistinguishable from "still working," with no visible reason to
+      // tap "say it again" and no indication anything had failed at all.
+      // SAY_AGAIN itself already worked (it's a universal event in
+      // machine.ts's reduce(), handled before the phase switch, for every
+      // phase including this one) — the only bug was that the UI never
+      // showed the user there was a real failure to escape from. See
+      // ErrorScreen.tsx's own header for the rest of the reasoning.
+      return <ErrorScreen lang={lang} onSayAgain={handleSayAgain} />;
+
     default:
-      // 'planning' (never set by reduce() — see machine.ts), 'lost' and
-      // 'error' (no dedicated screen) all land here. 'ready' has its own
-      // case above (ConfirmationScreen) and never reaches this branch.
+      // 'planning' (never set by reduce() — see machine.ts) and 'lost'
+      // (genuinely "still figuring out where you are" — a real, transient
+      // "thinking" state, not an error) land here. 'ready' and 'error' have
+      // their own cases above and never reach this branch.
       return <ListeningScreen lang={lang} thinking={true} onSayAgain={handleSayAgain} />;
   }
 }
