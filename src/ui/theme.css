@@ -103,7 +103,7 @@ h1 { font-size: clamp(40px, 11vw, 64px); line-height: 1.05; margin: 8px 0 16px; 
 .quick-destinations { color: var(--fg-muted); font-size: var(--fs-md); text-align: center; }
 .trail { display: flex; gap: 0; align-items: center; width: 100%; }
 .trail-node { width: 16px; height: 16px; border-radius: 50%; background: var(--bg); border: 3px solid #c6bba7; display: block; flex: 0 0 auto; position: relative; }
-.trail-node:not(:last-child)::after { content: ''; position: absolute; left: 13px; top: 4px; width: calc((100vw - 96px) / 4); max-width: 130px; height: 3px; background: #c6bba7; }
+.trail-node:not(:last-child)::after { content: ''; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); width: calc((100vw - 96px) / 4); max-width: 130px; height: 3px; background: #c6bba7; }
 .trail-node.complete { background: var(--accent); border-color: var(--accent); }
 .trail-node.complete::after { background: var(--accent); }
 .trail-node.current { width: 24px; height: 24px; border: 5px solid var(--accent); background: var(--bg); }
