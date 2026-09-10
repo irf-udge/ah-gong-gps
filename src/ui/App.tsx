@@ -97,8 +97,17 @@ const DEMO_LISTEN_MS = 2500;
  * a longer instruction sentence still finishes only moments before the next
  * geofence arms, reading as rushed on stage. 3.5 leaves a comfortable gap
  * (a real ~700m route now finishes in ~3-4 min instead of ~2-3).
+ *
+ * ⚠️ 2026-09-10: raised again, 3.5 -> 5.5 (19.8 km/h) — 3.5 traded too much
+ * the other way, dragging out a live presentation waiting on each geofence.
+ * Still purely a pacing choice, not a correctness one: ttsSpeakingRef (see
+ * above) holds STEP_ADVANCE/ARRIVED until the current step's speech has
+ * actually finished regardless of what this number is, so raising this can
+ * never bring back the original cut-off-speech bug — worst case the walker
+ * reaches a geofence before its speech ends and STEP_ADVANCE simply waits,
+ * rather than the geofence dictating pace.
  */
-const DEMO_WALK_SPEED_MPS = 3.5;
+const DEMO_WALK_SPEED_MPS = 5.5;
 
 /**
  * Real (non-demo) recording window. No push-to-talk/stop button exists —
