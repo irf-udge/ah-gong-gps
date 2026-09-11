@@ -77,7 +77,7 @@ export function HomeScreen({ lang, onSpeak, onChangeLanguage, demoMode, location
           {lang === 'ms' ? 'Bahasa Melayu' : '中文'}
         </button>
       </header>
-      <section className="home-copy"><p className="eyebrow">{lang === 'ms' ? 'Jalan dengan tenang' : '轻松出发'}</p><h1>{lang === 'ms' ? 'Ke mana anda mahu pergi?' : '您想去哪里？'}</h1>{locationLine && <p className="location-line">{locationLine}</p>}</section>
+      <section className="home-copy"><h1>{lang === 'ms' ? 'Ke mana anda mahu pergi?' : '您想去哪里？'}</h1>{locationLine && <p className="location-line">{locationLine}</p>}</section>
       {ready ? (
         <>
           <button type="button" className="mic-button" aria-label={book.tapToSpeak} onClick={onSpeak}><span className="mic-symbol">●</span><span>{lang === 'ms' ? 'Tekan dan cakap' : '按下，说出目的地'}</span></button>
