@@ -106,8 +106,12 @@ const DEMO_LISTEN_MS = 2500;
  * never bring back the original cut-off-speech bug — worst case the walker
  * reaches a geofence before its speech ends and STEP_ADVANCE simply waits,
  * rather than the geofence dictating pace.
+ *
+ * ⚠️ 2026-09-11: raised again, 5.5 -> 7 (25.2 km/h) — same reasoning as the
+ * 5.5 bump above, tuned further toward "brisk but readable" for stage use.
+ * ttsSpeakingRef is still the actual correctness guarantee, not this number.
  */
-const DEMO_WALK_SPEED_MPS = 5.5;
+const DEMO_WALK_SPEED_MPS = 7;
 
 /**
  * Real (non-demo) recording window. No push-to-talk/stop button exists —
